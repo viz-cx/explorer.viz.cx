@@ -10,7 +10,34 @@ from time import sleep
 from typing import NoReturn
 
 from helpers.mongo import get_last_blocknum, save_block
-from helpers.viz import get_last_block_in_chain, get_ops_in_block
+from helpers.viz import get_client, get_last_block_in_chain, get_ops_in_block
+
+_ACCOUNT_OPS = {"account_create", "account_update", "invite_registration"}
+
+
+def _update_key_index(block: list) -> None:
+    """Re-fetch and upsert key index for any account ops in this block."""
+    names = set()
+    for tx in block:
+        op = tx.get("op") or []
+        if not op or op[0] not in _ACCOUNT_OPS:
+            continue
+        op_type, op_data = op[0], op[1]
+        if op_type in ("account_create", "invite_registration"):
+            names.add(op_data.get("new_account_name", ""))
+        elif op_type == "account_update":
+            names.add(op_data.get("account", ""))
+    names.discard("")
+    if not names:
+        return
+    try:
+        from helpers.key_index import keys_from_account_data, upsert_keys
+        accounts = get_client().rpc.get_accounts(list(names))
+        for acc in accounts:
+            if acc:
+                upsert_keys(acc["name"], keys_from_account_data(acc))
+    except Exception as exc:
+        print(f"[key_index] update failed: {exc}")
 
 
 def resolve_start_block(last_db_block: int) -> int:
@@ -44,6 +71,7 @@ def start_parsing() -> NoReturn:
                     # parser can never re-stick on the same block.
                     block = get_ops_in_block(_, False)
                     save_block(block, _)
+                    _update_key_index(block)
                     last_db_block = _
                     if last_db_block % 100 == 0:
                         print(f"Saved block {_} (ch: {last_chain_block})")

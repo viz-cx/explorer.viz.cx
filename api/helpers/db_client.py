@@ -67,7 +67,9 @@ def ensure_indexes() -> None:
     coll.create_index([("_id", 1), ("block.op.0", 1), ("block.op.1.id", 1)])
 
     from helpers import signature_auth, webhooks
+    from helpers.key_index import ensure_key_indexes
 
     signature_auth.ensure_nonce_indexes()
     webhooks.ensure_indexes()
+    ensure_key_indexes()
     _indexes_ensured = True
