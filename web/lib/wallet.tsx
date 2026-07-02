@@ -9,10 +9,15 @@ import {
 } from 'react'
 import { keys, createHttpTransport, createReadApi, type Wif } from '@viz-cx/core'
 import { saveWallet, loadWallet, clearWallet } from './wallet-storage'
-import { resolveRoleMap, keyForRole, type WalletRole } from './wallet-roles'
+import { resolveRoleMap, keyForRole, signableRoles, type WalletRole } from './wallet-roles'
 import { NODE_ENDPOINTS } from './config'
 
 export type ModalMode = 'connect' | 'add-key'
+
+export interface AccountMatch {
+  account: string
+  roles: WalletRole[]
+}
 
 export interface WalletState {
   account: string | null
@@ -21,6 +26,7 @@ export interface WalletState {
   modalOpen: boolean
   modalMode: ModalMode
   connect(account: string, input: string): Promise<WalletRole[]>
+  discoverAccounts(input: string): Promise<AccountMatch[]>
   addKey(input: string): Promise<WalletRole[]>
   disconnect(): void
   keyFor(role: WalletRole): Wif | undefined
@@ -59,6 +65,31 @@ async function resolveKeyRoles(acc: string, input: string): Promise<Map<WalletRo
   return map
 }
 
+async function discoverByKey(input: string): Promise<AccountMatch[]> {
+  if (!keys.isWif(input)) {
+    throw new Error('Automatic lookup needs a WIF key')
+  }
+  const wif = input as Wif
+  const pub = String(keys.toPublic(wif))
+
+  const transport = createHttpTransport(NODE_ENDPOINTS[0])
+  const api = createReadApi(transport)
+
+  const refs = await api.getKeyReferences([pub])
+  const names = [...new Set(refs.flat())]
+  if (names.length === 0) return []
+
+  const accounts = await api.lookupAccountNames(names)
+  const matches: AccountMatch[] = []
+  accounts.forEach((accountData, i) => {
+    if (!accountData) return
+    const raw = accountData as unknown as Record<string, unknown>
+    const roles = signableRoles(raw, { wif, pub })
+    if (roles.length > 0) matches.push({ account: names[i], roles })
+  })
+  return matches
+}
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState<string | null>(null)
   const [walletKeys, setWalletKeys] = useState<{ regular?: Wif; active?: Wif }>({})
@@ -90,6 +121,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setWalletKeys(keysToStore)
     return [...map.keys()]
   }, [])
+
+  const discoverAccounts = useCallback(
+    (input: string): Promise<AccountMatch[]> => discoverByKey(input),
+    []
+  )
 
   const addKey = useCallback(
     async (input: string): Promise<WalletRole[]> => {
@@ -133,6 +169,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         modalOpen,
         modalMode,
         connect,
+        discoverAccounts,
         addKey,
         disconnect,
         keyFor,
