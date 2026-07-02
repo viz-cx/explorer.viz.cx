@@ -10,7 +10,7 @@ import {
 import { keys, createHttpTransport, createReadApi, type Wif } from '@viz-cx/core'
 import { saveWallet, loadWallet, clearWallet } from './wallet-storage'
 import { resolveRoleMap, keyForRole, signableRoles, type WalletRole } from './wallet-roles'
-import { NODE_ENDPOINTS } from './config'
+import { API_BASE, NODE_ENDPOINTS } from './config'
 
 export type ModalMode = 'connect' | 'add-key'
 
@@ -72,16 +72,16 @@ async function discoverByKey(input: string): Promise<AccountMatch[]> {
   const wif = input as Wif
   const pub = String(keys.toPublic(wif))
 
-  const transport = createHttpTransport(NODE_ENDPOINTS[0])
-  const api = createReadApi(transport)
-
-  const refs = await api.getKeyReferences([pub])
-  const names = [...new Set(refs.flat())]
+  const res = await fetch(`${API_BASE}/key-references?pub=${encodeURIComponent(pub)}`)
+  if (!res.ok) throw new Error(`Key lookup failed (${res.status})`)
+  const { accounts: names } = (await res.json()) as { accounts: string[] }
   if (names.length === 0) return []
 
-  const accounts = await api.lookupAccountNames(names)
+  const transport = createHttpTransport(NODE_ENDPOINTS[0])
+  const api = createReadApi(transport)
+  const accountsData = await api.lookupAccountNames(names)
   const matches: AccountMatch[] = []
-  accounts.forEach((accountData, i) => {
+  accountsData.forEach((accountData, i) => {
     if (!accountData) return
     const raw = accountData as unknown as Record<string, unknown>
     const roles = signableRoles(raw, { wif, pub })
