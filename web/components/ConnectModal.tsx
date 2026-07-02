@@ -85,7 +85,9 @@ export function ConnectModal({ open, onClose, mode }: Props) {
       }
 
       if (found.length === 0) {
-        setError('No account found for this key.')
+        setNeedAccount(true)
+        setError('Key not found in index — enter your account name.')
+        return
       } else if (found.length === 1) {
         await commit(found[0].account)
       } else {
