@@ -8,13 +8,7 @@ into the account_keys collection.
 Run from the api/ directory:
     python scripts/build_key_index.py
 """
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from dotenv import load_dotenv
-load_dotenv()
 
 from helpers.db_client import ensure_indexes
 from helpers.key_index import ensure_key_indexes, keys_from_account_data, upsert_keys
@@ -25,6 +19,7 @@ FETCH_BATCH = 200
 
 
 def main() -> None:
+    load_dotenv()
     ensure_indexes()
     ensure_key_indexes()
     client = get_client()
