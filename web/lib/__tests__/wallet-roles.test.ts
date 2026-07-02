@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { keys, type Wif } from '@viz-cx/core'
-import { resolveRoleMap, keyForRole, type KeyCandidate } from '@/lib/wallet-roles'
+import { resolveRoleMap, keyForRole, signableRoles, type KeyCandidate } from '@/lib/wallet-roles'
 
 // Deterministic fixtures derived from a master password — no hardcoded pubkeys.
 const ACC = 'alice'
@@ -101,5 +101,32 @@ describe('keyForRole', () => {
   it('returns undefined when no key is held', () => {
     expect(keyForRole({}, 'regular')).toBeUndefined()
     expect(keyForRole({}, 'active')).toBeUndefined()
+  })
+})
+
+describe('signableRoles', () => {
+  it('returns [active] for an active-only key match', () => {
+    const raw = rawAccount({ regular: regularWif, active: activeWif, master: masterWif })
+    expect(signableRoles(raw, cand(activeWif))).toEqual(['active'])
+  })
+
+  it('returns [regular] for a regular-only key match', () => {
+    const raw = rawAccount({ regular: regularWif, active: activeWif, master: masterWif })
+    expect(signableRoles(raw, cand(regularWif))).toEqual(['regular'])
+  })
+
+  it('returns [regular, active] when a shared key sits in both authorities', () => {
+    const shared = rawAccount({ regular: activeWif, active: activeWif })
+    expect(signableRoles(shared, cand(activeWif))).toEqual(['regular', 'active'])
+  })
+
+  it('returns [] for a memo-only (non-signing) key', () => {
+    const raw = rawAccount({ regular: regularWif, active: activeWif, master: masterWif })
+    expect(signableRoles(raw, cand(memoWif))).toEqual([])
+  })
+
+  it('returns [] when the key belongs to no authority on this account', () => {
+    const other = rawAccount({ regular: regularWif })
+    expect(signableRoles(other, cand(activeWif))).toEqual([])
   })
 })

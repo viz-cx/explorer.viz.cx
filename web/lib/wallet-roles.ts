@@ -49,6 +49,19 @@ export function resolveRoleMap(
 }
 
 /**
+ * The signing roles a single candidate key grants on a raw account payload,
+ * ordered regular-before-active. Empty means the key grants no signing
+ * authority (e.g. it is only the account's memo key, or belongs elsewhere).
+ * Thin wrapper over resolveRoleMap for account-discovery filtering.
+ */
+export function signableRoles(
+  raw: Record<string, unknown>,
+  candidate: KeyCandidate
+): WalletRole[] {
+  return [...resolveRoleMap(raw, [candidate]).keys()]
+}
+
+/**
  * Pick the lowest-privilege held key that satisfies the required authority.
  * Hierarchy is `regular < active` (a master key already folds into the `active`
  * slot in resolveRoleMap, so it covers both). A regular op prefers the regular
