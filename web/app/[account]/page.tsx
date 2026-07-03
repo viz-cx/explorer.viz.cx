@@ -4,6 +4,7 @@ import { getProfile, getChainInfo } from "@/lib/api";
 import { Avatar } from "@/components/Avatar";
 import { Card, DefRow, SectionTitle, StatTile, StatStrip } from "@/components/ui";
 import { EnergyMeter } from "@/components/EnergyMeter";
+import { AccountAnalytics } from "@/components/AccountAnalytics";
 import { AccountHistory } from "@/components/AccountHistory";
 import { AccountChip } from "@/components/AccountChip";
 import { AwardButton } from "@/components/AwardButton";
@@ -125,10 +126,13 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
           </Card>
         </div>
 
-        {/* Right: operation history (client island, paginated via node) */}
-        <div>
-          <SectionTitle>Operation history</SectionTitle>
-          <AccountHistory account={user} />
+        {/* Right: analytics + operation history (both client islands) */}
+        <div className="flex flex-col gap-6">
+          <AccountAnalytics account={user} />
+          <div>
+            <SectionTitle>Operation history</SectionTitle>
+            <AccountHistory account={user} />
+          </div>
         </div>
       </div>
     </div>
