@@ -88,3 +88,41 @@ def test_empty_history():
     assert out["rewards"]["given"] == []
     assert out["rewards"]["timeline"] == []
     assert out["activity"]["by_category"] == {"transfer": 0, "award": 0, "governance": 0, "account": 0, "other": 0}
+
+
+def test_analytics_endpoint_aggregates(client, monkeypatch):
+    from helpers import viz as viz_module
+
+    # One page then empty (signals end of history).
+    pages = [
+        [
+            [0, {"timestamp": "2026-07-01T00:00:00", "op": ["receive_award", {"receiver": "alice", "reward": "2.000000 SHARES"}]}],
+            [1, {"timestamp": "2026-07-02T00:00:00", "op": ["transfer", {"from": "alice", "to": "bob", "amount": "1.000 VIZ"}]}],
+        ],
+    ]
+
+    def fake_get_account_history(account, frm, limit):
+        return pages.pop(0) if pages else []
+
+    viz_module.viz.rpc.get_account_history.side_effect = fake_get_account_history
+
+    res = client.get("/analytics/alice")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["account"] == "alice"
+    assert data["available"] is True
+    assert data["rewards"]["received"] == [{"symbol": "SHARES", "total": 2.0, "count": 1}]
+    assert data["activity"]["by_category"]["transfer"] == 1
+
+
+def test_analytics_endpoint_unavailable_when_history_throws(client, monkeypatch):
+    from helpers import viz as viz_module
+
+    viz_module.viz.rpc.get_account_history.side_effect = Exception("history purged")
+
+    res = client.get("/analytics/lottery.id")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["account"] == "lottery.id"
+    assert data["available"] is False
+    assert data["rewards"] is None
