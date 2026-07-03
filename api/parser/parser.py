@@ -71,8 +71,13 @@ def start_parsing() -> NoReturn:
                     # parser can never re-stick on the same block.
                     block = get_ops_in_block(_, False)
                     save_block(block, _)
-                    _update_key_index(block)
+                    # Record progress the instant the block is persisted, BEFORE
+                    # any best-effort side work. Otherwise a failure in
+                    # _update_key_index leaves the block saved but the position
+                    # unadvanced, and the next iteration re-inserts → dup-key
+                    # crash-loop (froze the tip at 81,288,426 for ~16h).
                     last_db_block = _
+                    _update_key_index(block)
                     if last_db_block % 100 == 0:
                         print(f"Saved block {_} (ch: {last_chain_block})")
             else:

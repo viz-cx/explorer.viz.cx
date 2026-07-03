@@ -41,3 +41,15 @@ def test_save_block_nonempty_explicit_number_wins():
     stored = mongo.get_block(7)
     assert stored["_id"] == 7
     assert "block" not in stored["block"][0]  # per-op block field stripped
+
+
+def test_save_block_duplicate_is_idempotent():
+    """Re-saving an already-stored block must be a no-op, not raise. A
+    DuplicateKeyError here previously crash-looped the parser (tip frozen at
+    81,288,426): its in-memory position desynced from the DB and every retry
+    re-inserted the same _id."""
+    from helpers import mongo
+
+    mongo.save_block([], 4242)
+    mongo.save_block([], 4242)  # must not raise
+    assert mongo.get_block(4242) == {"_id": 4242, "block": []}
