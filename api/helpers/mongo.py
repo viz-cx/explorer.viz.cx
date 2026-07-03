@@ -1,9 +1,11 @@
 """Helper module for working with MongoDB — raw block I/O only."""
 
+import contextlib
 import datetime as dt
 import os
 
 import pymongo
+from pymongo.errors import DuplicateKeyError
 
 from helpers.db_client import get_async_db, get_db
 
@@ -56,7 +58,13 @@ def save_block(block, blocknum: int | None = None) -> None:
             tx.pop("trx_id")
         tx_t = dt.datetime.fromisoformat(tx.get("timestamp"))
         tx.update({"timestamp": tx_t})
-    coll.insert_one({"block": block, "_id": blocknum})
+    # Idempotent insert: a DuplicateKeyError means this block is already stored,
+    # so suppress it and let the caller advance instead of crash-looping. A
+    # desync between the parser's in-memory position and the DB (an error after a
+    # successful insert but before progress was recorded) previously froze the
+    # tip at 81,288,426 for ~16h on repeated re-inserts of the same _id.
+    with contextlib.suppress(DuplicateKeyError):
+        coll.insert_one({"block": block, "_id": blocknum})
 
 
 def get_block(id: int) -> dict:
