@@ -78,7 +78,7 @@ export function ConnectModal({ open, onClose, mode }: Props) {
       try {
         found = await wallet.discoverAccounts(input)
       } catch {
-        // Lookup unavailable (plugin absent / node hiccup): fall back to manual.
+        // Lookup unavailable (key-index API down / network hiccup): fall back to manual.
         setNeedAccount(true)
         setError('Automatic lookup unavailable — enter your account name.')
         return
