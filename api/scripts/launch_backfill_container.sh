@@ -31,11 +31,19 @@
 
 set -euo pipefail
 
-NAME=viz-backfill
+NAME=${NAME:-viz-backfill}
 SRC_DIR=/opt/viz-backfill
 SCRIPT_NAME=backfill_from_info_viz.py
 HERE=$(cd "$(dirname "$0")" && pwd)
 : "${BACKFILL_SLEEP:=1.0}"
+
+# Optional explicit range (defaults to the gap-1 hole baked into the script).
+# Set both to run a second, parallel sidecar over a different gap, e.g.:
+#   NAME=viz-backfill-gap2 BACKFILL_START=80807025 BACKFILL_END=81192999 \
+#     BACKFILL_SLEEP=1.5 bash launch_backfill_container.sh
+RANGE_ENV=()
+[ -n "${BACKFILL_START:-}" ] && RANGE_ENV+=(-e "BACKFILL_START=$BACKFILL_START")
+[ -n "${BACKFILL_END:-}" ] && RANGE_ENV+=(-e "BACKFILL_END=$BACKFILL_END")
 
 # 1) stage the backfill python on the host (bind-mounted into the sidecar)
 if [ ! -f "$HERE/$SCRIPT_NAME" ]; then
@@ -60,7 +68,8 @@ NETS=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{e
 FIRST=$(echo "$NETS" | awk '{print $1}')
 [ -n "$FIRST" ] || { echo "ERROR: API container has no networks?" >&2; exit 1; }
 
-echo "image=$IMAGE  db=$DB_NAME  coll=$COLLECTION  sleep=${BACKFILL_SLEEP}s"
+echo "name=$NAME  image=$IMAGE  db=$DB_NAME  coll=$COLLECTION  sleep=${BACKFILL_SLEEP}s"
+echo "range=${BACKFILL_START:-default}-${BACKFILL_END:-default}"
 echo "networks=[$NETS]"
 
 # 4) (re)create the self-restarting sidecar on the same network(s)
@@ -69,6 +78,7 @@ docker create --name "$NAME" --restart unless-stopped \
   --network "$FIRST" \
   -e MONGO="$MONGO" -e DB_NAME="$DB_NAME" -e COLLECTION="$COLLECTION" \
   -e BACKFILL_SLEEP="$BACKFILL_SLEEP" \
+  ${RANGE_ENV[@]+"${RANGE_ENV[@]}"} \
   -v "$SRC_DIR/$SCRIPT_NAME:/code/scripts/$SCRIPT_NAME:ro" \
   "$IMAGE" \
   python -m scripts.backfill_from_info_viz >/dev/null
