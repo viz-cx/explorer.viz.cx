@@ -17,6 +17,7 @@ OP_CATEGORY: dict[str, str] = {
     "author_reward": "award",
     "curation_reward": "award",
     "producer_reward": "award",
+    "validator_reward": "award",
     "account_witness_vote": "governance",
     "account_validator_vote": "governance",
     "account_witness_proxy": "governance",
@@ -65,8 +66,8 @@ def _reward_amount(op_type: str, body: dict, account: str) -> tuple[str, float, 
     if op_type == "receive_award":
         amt, sym = parse_asset(body.get("reward") or body.get("shares"))
         return (sym, amt, 0.0)
-    if op_type == "producer_reward":
-        amt, sym = parse_asset(body.get("reward") or body.get("vesting_shares"))
+    if op_type in ("producer_reward", "validator_reward"):
+        amt, sym = parse_asset(body.get("shares") or body.get("reward") or body.get("vesting_shares"))
         return (sym, amt, 0.0)
     if op_type == "fixed_award":
         amt, sym = parse_asset(body.get("reward_amount"))

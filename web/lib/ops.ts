@@ -49,6 +49,7 @@ const CATEGORY: Record<string, OpCategory> = {
   author_reward: "award",
   curation_reward: "award",
   producer_reward: "award",
+  validator_reward: "award",
   account_witness_vote: "governance",
   account_validator_vote: "governance",
   account_witness_proxy: "governance",
@@ -146,6 +147,7 @@ const DECODERS: Record<string, Decoder> = {
     txt(`custom "${s(b.id)}"`),
   ],
   producer_reward: (b) => [acc(b.producer ?? b.validator), txt("block reward"), amt(s(b.vesting_shares), "pos")],
+  validator_reward: (b) => [acc(b.validator), txt("block reward"), amt(s(b.shares), "pos")],
 };
 
 function voteParts(b: Body, target: unknown): OpPart[] {
