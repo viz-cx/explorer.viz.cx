@@ -41,17 +41,17 @@ export function ConnectModal({ open, onClose, mode }: Props) {
     }
   }, [open])
 
-  function describeRoles(roles: ('regular' | 'active')[], added: boolean): string {
+  function describeRoles(acc: string, roles: ('regular' | 'active')[], added: boolean): string {
     const ordered = (['active', 'regular'] as const).filter((r) => roles.includes(r))
     const label = ordered.join(' + ')
     if (added) return `Added — ${label} key`
-    return `Connected — ${label} ${ordered.length > 1 ? 'detected' : 'only'}`
+    return `Connected as @${acc} — ${label}`
   }
 
   async function commit(acc: string) {
     const roles = await wallet.connect(acc, input)
-    setSuccess(describeRoles(roles, false))
-    setTimeout(onClose, 1200)
+    setSuccess(describeRoles(acc, roles, false))
+    setTimeout(onClose, 1500)
   }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -61,7 +61,7 @@ export function ConnectModal({ open, onClose, mode }: Props) {
     try {
       if (mode === 'add-key') {
         const roles = await wallet.addKey(input)
-        setSuccess(describeRoles(roles, true))
+        setSuccess(describeRoles(wallet.account ?? '', roles, true))
         setTimeout(onClose, 1200)
         return
       }
