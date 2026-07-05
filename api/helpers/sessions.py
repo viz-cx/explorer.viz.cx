@@ -38,3 +38,13 @@ def resolve_session(token: str) -> str | None:
         return None
     doc = _coll().find_one({"_id": token})
     return doc["account"] if doc else None
+
+
+def revoke_session(token: str) -> bool:
+    """Delete a session token (logout). Returns True if a token was removed.
+
+    Idempotent: revoking an already-absent token is a no-op returning False.
+    """
+    if not token:
+        return False
+    return _coll().delete_one({"_id": token}).deleted_count == 1

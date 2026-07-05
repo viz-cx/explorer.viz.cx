@@ -7,6 +7,7 @@ pydantic==2.12.5
 pyeditorjs==1.0.0b0
 pymongo==4.15.5
 python-dotenv==1.2.1
+sentry-sdk[fastapi]==2.64.0
 uvicorn==0.40.0
 viz-python-lib==1.1.0
 websockets==16.0

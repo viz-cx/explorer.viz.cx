@@ -25,6 +25,26 @@ pnpm test                # vitest
 pnpm build               # next build
 ```
 
+## Environment
+
+All optional — the app runs with sensible defaults (see `lib/config.ts`).
+
+| Var | Scope | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_BASE` | build | REST API base (default `https://api.viz.cx`) |
+| `NEXT_PUBLIC_WS_URL` | build | Live op-stream WS (default `wss://api.viz.cx/ws/ops`) |
+| `NEXT_PUBLIC_NODE_ENDPOINTS` | build | Comma-separated RPC nodes |
+| `NEXT_PUBLIC_SENTRY_DSN` | build | Browser error tracking; **unset = Sentry disabled** |
+| `SENTRY_DSN` | runtime | Server/edge error tracking; unset = disabled |
+| `SENTRY_ENVIRONMENT` / `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | build/runtime | Sentry environment tag (default `production`) |
+| `SENTRY_TRACES_SAMPLE_RATE` / `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | build/runtime | Tracing sample rate (default `0`) |
+| `SENTRY_AUTH_TOKEN` | build | Enables source-map upload during `next build`; omit to skip |
+
+> `NEXT_PUBLIC_*` values are inlined at **build time** (Turbopack), so they must
+> be present when the image is built, not just at runtime. Sentry is fully
+> no-op until a DSN is provided, so it's safe to ship without one. Private keys
+> (WIF) are stripped from every Sentry event/breadcrumb by `lib/sentry-scrub.ts`.
+
 ## Deployment
 
 Deployed with [Kamal](https://kamal-deploy.org/) from the repo root:
