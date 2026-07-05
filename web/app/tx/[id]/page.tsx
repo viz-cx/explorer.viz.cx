@@ -10,8 +10,6 @@ import { CATEGORY_DOT, CATEGORY_TONE, decodeOp } from "@/lib/ops";
 import { formatUTC, timeAgo, truncateMiddle } from "@/lib/format";
 import type { OpRecord } from "@/lib/types";
 
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: {

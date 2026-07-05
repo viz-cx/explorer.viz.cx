@@ -6,7 +6,6 @@ import { StackedBar } from "@/components/charts";
 import { AccountChip } from "@/components/AccountChip";
 import { assetAmount, compact, num, timeAgo } from "@/lib/format";
 
-export const revalidate = 10;
 export const metadata: Metadata = { title: "Network dashboard" };
 
 export default async function DashboardPage() {

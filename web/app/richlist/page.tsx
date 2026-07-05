@@ -4,7 +4,6 @@ import { Card, Empty, SectionTitle } from "@/components/ui";
 import { RichlistTable } from "@/components/tables/RichlistTable";
 import { timeAgo } from "@/lib/format";
 
-export const revalidate = 60;
 export const metadata: Metadata = { title: "Richlist" };
 
 export default async function RichlistPage() {

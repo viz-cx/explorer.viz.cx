@@ -20,8 +20,6 @@ import {
   timeAgo,
 } from "@/lib/format";
 
-export const revalidate = 30;
-
 export async function generateMetadata({
   params,
 }: {
