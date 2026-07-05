@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from helpers import pubsub, webhooks
+from helpers import notifications, pubsub, webhooks
 from helpers.viz import convertShares
 
 # Matches the historical sorter constant: op N of a block gets the fractional
@@ -45,3 +45,4 @@ def emit_block_ops(block_num: int, txs: list[dict[str, Any]]) -> None:
         }
         pubsub.publish_op(op_json)
         webhooks.dispatch(op_json)
+        notifications.dispatch(op_json)
