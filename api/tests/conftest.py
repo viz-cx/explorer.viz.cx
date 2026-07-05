@@ -56,6 +56,17 @@ def _viz(monkeypatch):
     yield fake
 
 
+@pytest.fixture(autouse=True)
+def _reset_ratelimit():
+    """The in-memory rate limiter is process-global, and TestClient presents a
+    single client IP, so counters would otherwise leak across tests. Clear
+    before each test."""
+    from helpers import ratelimit
+
+    ratelimit.reset()
+    yield
+
+
 @pytest.fixture
 def client(monkeypatch):
     """FastAPI TestClient with workers skipped and lifespan invoked."""

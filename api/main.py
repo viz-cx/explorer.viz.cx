@@ -15,7 +15,9 @@ from fastapi_cache.backends.inmemory import InMemoryBackend
 
 load_dotenv()
 
+from helpers import ratelimit  # noqa: E402
 from helpers.db_client import ensure_indexes  # noqa: E402
+from helpers.observability import init_sentry  # noqa: E402
 from helpers.richlist_snapshot import run_richlist  # noqa: E402
 from helpers.router import router  # noqa: E402
 from helpers.viz import init_node  # noqa: E402
@@ -37,6 +39,11 @@ logger = logging.getLogger(__name__)
 LEGACY_RPC_HOST = "node.viz.cx"
 RPC_UPSTREAM = "https://rpc.viz.cx:19443"
 RPC_WS_UPSTREAM = "wss://rpc.viz.cx:19443"
+# Per-IP cap on the public node.viz.cx HTTP proxy. Generous by design — the
+# explorer's own client islands hit this from the browser, so a single active
+# user makes many calls; this is an anti-abuse ceiling, not a fair-use quota.
+# Tune with RPC_PROXY_RATE_PER_MIN; 0 disables the limit entirely.
+RPC_PROXY_RATE_PER_MIN = int(os.getenv("RPC_PROXY_RATE_PER_MIN", "600"))
 # RFC 7230 hop-by-hop headers — must not be forwarded across the proxy.
 _HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
@@ -74,6 +81,10 @@ async def lifespan(app: FastAPI):
         _rpc_client = None
 
 
+# Error tracking. No-op unless SENTRY_DSN is set; must run before the app is
+# created so the ASGI integration wraps it.
+init_sentry()
+
 # root_path "" (FastAPI's default) when serving at the domain root; "/" makes
 # Starlette 307-redirect every path (/ -> //, /playground/ -> 404). Set
 # ROOT_PATH only when mounted under a stripped prefix (e.g. /api/v1).
@@ -96,6 +107,11 @@ async def proxy_legacy_rpc_host(request: Request, call_next):
     by proxy_legacy_rpc_ws below (handshakes bypass HTTP middleware)."""
     if request.headers.get("host", "").split(":")[0] != LEGACY_RPC_HOST:
         return await call_next(request)
+
+    if not ratelimit.hit(
+        f"rpcproxy:{ratelimit.client_ip(request)}", RPC_PROXY_RATE_PER_MIN, 60.0
+    ):
+        return Response(status_code=429, content=b"Rate limit exceeded")
 
     url = RPC_UPSTREAM + request.url.path
     if request.url.query:

@@ -49,3 +49,29 @@ def test_post_session_rejects_bad_signature(client, _viz):
         headers={"X-Auth-Account": "alice", "X-Auth-Nonce": nonce, "X-Auth-Signature": "00" * 65},
     )
     assert resp.status_code == 401
+
+
+def test_revoke_session_removes_token():
+    token = sessions.create_session("alice")
+    assert sessions.revoke_session(token) is True
+    assert sessions.resolve_session(token) is None
+
+
+def test_revoke_session_is_idempotent():
+    assert sessions.revoke_session("never-existed") is False
+
+
+def test_delete_session_endpoint_revokes(client):
+    token = sessions.create_session("alice")
+    resp = client.delete("/session", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"ok": True}
+    assert sessions.resolve_session(token) is None
+    # Second logout with the same (now-gone) token still succeeds, ok=False.
+    resp2 = client.delete("/session", headers={"Authorization": f"Bearer {token}"})
+    assert resp2.status_code == 200
+    assert resp2.json() == {"ok": False}
+
+
+def test_delete_session_requires_bearer(client):
+    assert client.delete("/session").status_code == 401
