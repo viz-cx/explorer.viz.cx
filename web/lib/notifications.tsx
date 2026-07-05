@@ -161,13 +161,36 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!connected) return
+    // Only poll while the tab is visible — a backgrounded tab has no UI to
+    // update, so polling it just wastes requests and battery. On return to the
+    // foreground we refresh once immediately to catch up, then resume the timer.
+    let id: ReturnType<typeof setInterval> | undefined
+    const start = () => { id ??= setInterval(() => { void refresh() }, POLL_MS) }
+    const stop = () => { if (id !== undefined) { clearInterval(id); id = undefined } }
+    const onVisibility = () => {
+      if (document.hidden) { stop() }
+      else { void refresh(); start() }
+    }
     void refresh()
-    const id = setInterval(() => { void refresh() }, POLL_MS)
-    return () => clearInterval(id)
+    if (!document.hidden) start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [connected, refresh])
 
   useEffect(() => {
     if (!connected) {
+      // Revoke the session server-side on disconnect so a leaked token can't
+      // outlive the wallet session (fire-and-forget; logout is idempotent).
+      const token = tokenRef.current ?? (typeof window !== 'undefined' ? sessionStorage.getItem(TOKEN_KEY) : null)
+      if (token) {
+        void fetch(`${API_BASE}/session`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {})
+      }
       tokenRef.current = null
       if (typeof window !== 'undefined') sessionStorage.removeItem(TOKEN_KEY)
     }
