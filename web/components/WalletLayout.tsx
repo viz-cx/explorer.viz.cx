@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react'
 import { WalletProvider, useWallet } from '@/lib/wallet'
 import { ToastProvider } from '@/lib/toast'
+import { NotificationsProvider } from '@/lib/notifications'
 import { ConnectModal } from './ConnectModal'
 
 function ModalMount() {
@@ -13,8 +14,10 @@ export function WalletLayout({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <WalletProvider>
-        {children}
-        <ModalMount />
+        <NotificationsProvider>
+          {children}
+          <ModalMount />
+        </NotificationsProvider>
       </WalletProvider>
     </ToastProvider>
   )
