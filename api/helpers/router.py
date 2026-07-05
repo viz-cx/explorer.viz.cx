@@ -10,6 +10,7 @@ from endpoints import (
     profile,
     richlist,
     session,
+    watchlist,
     webhooks,
     ws,
 )
@@ -18,6 +19,7 @@ router = APIRouter()
 router.include_router(others.router)
 router.include_router(auth.router)
 router.include_router(session.router)
+router.include_router(watchlist.router)
 router.include_router(analytics.router)
 router.include_router(key_references.router)
 router.include_router(blocks.router)

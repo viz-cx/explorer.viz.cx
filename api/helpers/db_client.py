@@ -30,8 +30,9 @@ def set_client(client: Any, db_name: str | None = None) -> None:
     _db = client[db_name or os.getenv("DB_NAME", "")]
     _indexes_ensured = False
 
-    from helpers import webhooks
+    from helpers import watchlist, webhooks
     webhooks._invalidate_cache()
+    watchlist._invalidate()
 
 
 def set_async_client(client: Any, db_name: str | None = None) -> None:
