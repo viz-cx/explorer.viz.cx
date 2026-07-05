@@ -10,8 +10,15 @@ export function WalletChip() {
   const router = useRouter()
   const [energy, setEnergy] = useState<number | null>(null)
 
+  // Clear stale energy when the account changes or clears (render-phase, before paint).
+  const [prevAccount, setPrevAccount] = useState(wallet.account)
+  if (prevAccount !== wallet.account) {
+    setPrevAccount(wallet.account)
+    setEnergy(null)
+  }
+
   useEffect(() => {
-    if (!wallet.connected || !wallet.account) { setEnergy(null); return }
+    if (!wallet.connected || !wallet.account) return
     const transport = createHttpTransport(NODE_ENDPOINTS[0])
     const api = createReadApi(transport)
     api

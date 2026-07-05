@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useWallet } from '@/lib/wallet'
 import { useToast } from '@/lib/toast'
 import { createProposal } from '@/lib/actions'
@@ -21,16 +21,17 @@ export function CreateProposalModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (open) setWorker(wallet.account ?? '')
-  }, [open, wallet.account])
-
-  useEffect(() => {
-    if (!open) {
+  // Seed the worker on open / reset the form on close (render-phase, before paint).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
+    if (open) {
+      setWorker(wallet.account ?? '')
+    } else {
       setUrl(''); setAmountMin('0'); setAmountMax(''); setDays(''); setWorker('')
       setError(null)
     }
-  }, [open])
+  }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()

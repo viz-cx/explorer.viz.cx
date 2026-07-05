@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { keys } from '@viz-cx/core'
 import { useWallet, type AccountMatch } from '@/lib/wallet'
 import { ModalShell } from './ModalShell'
@@ -28,8 +28,11 @@ export function ConnectModal({ open, onClose, mode }: Props) {
   // shown once a non-WIF (password) is typed, or after a lookup falls back.
   const showAccountField = mode === 'connect' && (needAccount || (input.length > 0 && !isWif))
 
-  // Clear sensitive + transient state whenever the modal closes.
-  useEffect(() => {
+  // Clear sensitive + transient state whenever the modal closes (render-phase,
+  // so it lands before paint).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
     if (!open) {
       setAccount('')
       setInput('')
@@ -39,7 +42,7 @@ export function ConnectModal({ open, onClose, mode }: Props) {
       setError(null)
       setSuccess(null)
     }
-  }, [open])
+  }
 
   function describeRoles(acc: string, roles: ('regular' | 'active')[], added: boolean): string {
     const ordered = (['active', 'regular'] as const).filter((r) => roles.includes(r))

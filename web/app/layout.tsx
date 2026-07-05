@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
@@ -47,9 +48,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <a href="https://node.viz.cx" className="hover:text-fg" rel="noreferrer">
                   node.viz.cx
                 </a>
-                <a href="/dev/playground" className="hover:text-fg">
+                <Link href="/dev/playground" className="hover:text-fg">
                   API
-                </a>
+                </Link>
                 <a href="https://github.com/viz-cx" className="hover:text-fg" rel="noreferrer">
                   GitHub
                 </a>

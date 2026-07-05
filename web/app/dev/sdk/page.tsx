@@ -104,7 +104,7 @@ export default function SdkPage() {
       <section className="flex flex-col gap-3">
         <h2 className="font-prose text-sm font-semibold text-fg">Asset formatting</h2>
         <p className="font-prose text-xs text-fg-muted">
-          <code>Asset</code> is an immutable value object for VIZ token amounts. Use <code>Asset.parse(str)</code> to parse chain strings like <code>"10.000 VIZ"</code>.
+          <code>Asset</code> is an immutable value object for VIZ token amounts. Use <code>Asset.parse(str)</code> to parse chain strings like <code>&quot;10.000 VIZ&quot;</code>.
         </p>
         <CodeBlock code={ASSET} lang="typescript" />
       </section>

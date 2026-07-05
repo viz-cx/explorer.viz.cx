@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useWallet } from '@/lib/wallet'
 import { useToast } from '@/lib/toast'
 import { voteProposal } from '@/lib/actions'
@@ -19,11 +19,12 @@ export function CommitteeVoteModal({ open, onClose, proposal, votePercent }: Pro
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      setError(null)
-    }
-  }, [open])
+  // Reset transient state on close (render-phase, so it lands before paint).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
+    if (!open) setError(null)
+  }
 
   async function handleConfirm() {
     const wif = wallet.keyFor('regular')

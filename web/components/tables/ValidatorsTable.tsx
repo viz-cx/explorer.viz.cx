@@ -40,9 +40,7 @@ export function ValidatorsTable({
   const [proxiedWeightViz, setProxiedWeightViz] = useState(0);
 
   const fetchAccount = useCallback(() => {
-    if (!wallet.account) {
-      setVotedSet(new Set()); setProxy(""); setProxiedWeightViz(0); return;
-    }
+    if (!wallet.account) return;
     let cancelled = false;
     const transport = createHttpTransport(NODE_ENDPOINTS[0]);
     const api = createReadApi(transport);
@@ -58,6 +56,13 @@ export function ValidatorsTable({
       .catch(() => {});
     return () => { cancelled = true; };
   }, [wallet.account, fund, totalShares]);
+
+  // Clear vote state when no account is connected (render-phase, before paint).
+  const [prevAccount, setPrevAccount] = useState(wallet.account);
+  if (prevAccount !== wallet.account) {
+    setPrevAccount(wallet.account);
+    if (!wallet.account) { setVotedSet(new Set()); setProxy(""); setProxiedWeightViz(0); }
+  }
 
   useEffect(() => {
     return fetchAccount();
