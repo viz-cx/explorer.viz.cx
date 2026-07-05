@@ -4,6 +4,7 @@ import { HeadBlockTicker } from "./HeadBlockTicker";
 import { WalletChip } from "./WalletChip";
 import { MobileNav } from "./MobileNav";
 import { DesktopNav } from "./DesktopNav";
+import { NotificationBell } from "./NotificationBell";
 
 /** Persistent global header: logo + smart search + nav + live head-block ticker. */
 export function Header() {
@@ -25,6 +26,9 @@ export function Header() {
 
         <div className="shrink-0">
           <HeadBlockTicker />
+        </div>
+        <div className="shrink-0">
+          <NotificationBell />
         </div>
         <div className="shrink-0">
           <WalletChip />

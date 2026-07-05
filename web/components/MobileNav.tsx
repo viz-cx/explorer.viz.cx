@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { NAV, isNavActive } from '@/lib/nav'
+import { NotificationBell } from './NotificationBell'
 
 /** Hamburger menu shown below the `lg` breakpoint; the desktop nav is hidden there. */
 export function MobileNav() {
@@ -17,7 +18,8 @@ export function MobileNav() {
   }, [open])
 
   return (
-    <div className="lg:hidden">
+    <div className="flex items-center gap-1 lg:hidden">
+      <NotificationBell />
       <button
         onClick={() => setOpen(v => !v)}
         aria-label="Menu"
