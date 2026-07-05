@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createHttpTransport, createReadApi, type AccountHistoryItem } from '@viz-cx/core'
 import { useWallet } from '@/lib/wallet'
+import { useToast } from '@/lib/toast'
 import { NODE_ENDPOINTS } from '@/lib/config'
 import { currentEnergy, formatUTC } from '@/lib/format'
 import { TransferModal } from '@/components/TransferModal'
@@ -36,6 +37,7 @@ interface HistoryRow {
 
 export default function WalletPage() {
   const wallet = useWallet()
+  const toast = useToast()
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null)
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -143,7 +145,7 @@ export default function WalletPage() {
             Add key
           </button>
           <button
-            onClick={wallet.disconnect}
+            onClick={() => { wallet.disconnect(); toast.success('Wallet disconnected') }}
             aria-label="Disconnect wallet"
             className="rounded border border-border px-3 py-1.5 font-prose text-xs text-fg-muted transition-colors hover:text-fg"
           >
