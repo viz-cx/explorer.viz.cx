@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { keys } from '@viz-cx/core'
 import { useWallet, type AccountMatch } from '@/lib/wallet'
+import { useToast } from '@/lib/toast'
 import { ModalShell } from './ModalShell'
 
 interface Props {
@@ -14,6 +15,7 @@ type Phase = 'input' | 'select'
 
 export function ConnectModal({ open, onClose, mode }: Props) {
   const wallet = useWallet()
+  const toast = useToast()
   const [account, setAccount] = useState('')
   const [input, setInput] = useState('')
   const [phase, setPhase] = useState<Phase>('input')
@@ -21,7 +23,6 @@ export function ConnectModal({ open, onClose, mode }: Props) {
   const [needAccount, setNeedAccount] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   const isWif = keys.isWif(input)
   // In connect mode the account field is hidden until we know we need it:
@@ -40,7 +41,6 @@ export function ConnectModal({ open, onClose, mode }: Props) {
       setMatches([])
       setNeedAccount(false)
       setError(null)
-      setSuccess(null)
     }
   }
 
@@ -53,8 +53,8 @@ export function ConnectModal({ open, onClose, mode }: Props) {
 
   async function commit(acc: string) {
     const roles = await wallet.connect(acc, input)
-    setSuccess(describeRoles(acc, roles, false))
-    setTimeout(onClose, 1500)
+    toast.success(describeRoles(acc, roles, false))
+    onClose()
   }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -64,8 +64,8 @@ export function ConnectModal({ open, onClose, mode }: Props) {
     try {
       if (mode === 'add-key') {
         const roles = await wallet.addKey(input)
-        setSuccess(describeRoles(wallet.account ?? '', roles, true))
-        setTimeout(onClose, 1200)
+        toast.success(describeRoles(wallet.account ?? '', roles, true))
+        onClose()
         return
       }
 
@@ -130,7 +130,7 @@ export function ConnectModal({ open, onClose, mode }: Props) {
               <li key={m.account}>
                 <button
                   type="button"
-                  disabled={loading || success !== null}
+                  disabled={loading}
                   onClick={() => handleSelect(m.account)}
                   className="flex w-full items-center justify-between rounded border border-border bg-surface-2 px-3 py-2 text-left text-sm text-fg transition-colors hover:border-border-strong disabled:opacity-50"
                 >
@@ -152,7 +152,6 @@ export function ConnectModal({ open, onClose, mode }: Props) {
             ))}
           </ul>
           {error && <p className="font-prose text-xs text-acc-red">{error}</p>}
-          {success && <p className="font-prose text-xs text-acc-green">{success}</p>}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -201,7 +200,6 @@ export function ConnectModal({ open, onClose, mode }: Props) {
           </div>
 
           {error && <p className="font-prose text-xs text-acc-red">{error}</p>}
-          {success && <p className="font-prose text-xs text-acc-green">{success}</p>}
 
           <p className="font-prose text-[10px] leading-relaxed text-fg-dim">
             Keys are stored encrypted in this browser only. The encryption key is
@@ -210,7 +208,7 @@ export function ConnectModal({ open, onClose, mode }: Props) {
 
           <button
             type="submit"
-            disabled={loading || success !== null}
+            disabled={loading}
             className="w-full rounded bg-acc-green py-2 font-prose text-sm font-semibold text-canvas transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading ? 'Connecting…' : mode === 'add-key' ? 'Add key' : 'Connect'}

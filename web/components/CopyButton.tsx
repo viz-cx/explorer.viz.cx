@@ -1,18 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/lib/toast";
 
 /** Click-to-copy icon button. Shows a brief check on success. */
 export function CopyButton({ value, className = "" }: { value: string; className?: string }) {
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1100);
+      toast.success("Copied to clipboard");
     } catch {
-      /* clipboard unavailable (insecure context) — ignore */
+      // clipboard unavailable (insecure context / denied permission)
+      toast.error("Couldn't copy — clipboard unavailable");
     }
   }
 

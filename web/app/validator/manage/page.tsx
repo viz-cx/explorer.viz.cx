@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { publicKey, type ChainProperties } from '@viz-cx/core'
 import { useWallet } from '@/lib/wallet'
+import { useToast } from '@/lib/toast'
 import { fetchValidator, propsFromRaw, type RawValidator } from '@/lib/validator'
 import { updateValidator, goIdleValidator, updateChainProperties } from '@/lib/actions'
 import { ValidatorStatusCard } from '@/components/ValidatorStatusCard'
@@ -42,6 +43,7 @@ const DEFAULT_PROPS: ChainProperties = {
 
 export default function ValidatorManagePage() {
   const wallet = useWallet()
+  const toast = useToast()
   const [validator, setValidator] = useState<RawValidator | null>(null)
   const [declarationFee, setDeclarationFee] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -51,7 +53,6 @@ export default function ValidatorManagePage() {
   const [pendingProps, setPendingProps] = useState<ChainProperties | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(false)
 
   // Flag loading when the connected account changes (render-phase, before paint).
   const [prevAccount, setPrevAccount] = useState(wallet.account)
@@ -79,10 +80,9 @@ export default function ValidatorManagePage() {
     return () => { cancelled = true }
   }, [wallet.connected, wallet.account])
 
-  /** Navigate between steps, clearing any stale success/error feedback. */
+  /** Navigate between steps, clearing any stale validation error. */
   function goStep(s: Step) {
     setError(null)
-    setDone(false)
     setStep(s)
   }
 
@@ -101,28 +101,29 @@ export default function ValidatorManagePage() {
   async function handleConfirmRegister() {
     const wif = wallet.keyFor('active')
     if (!wif) { setError('Active key required'); return }
-    setBusy(true); setError(null); setDone(false)
+    const registering = !validator
+    setBusy(true); setError(null)
     try {
       await updateValidator(wif, wallet.account!, url, signingKey)
-      setDone(true)
+      toast.success(registering ? 'Validator registered' : 'Validator updated')
       const v = await fetchValidator(wallet.account!)
       setValidator(v)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transaction failed')
+      toast.error(err instanceof Error ? err.message : 'Transaction failed')
     } finally { setBusy(false); setStep('idle') }
   }
 
   async function handleConfirmIdle() {
     const wif = wallet.keyFor('active')
     if (!wif) { setError('Active key required'); return }
-    setBusy(true); setError(null); setDone(false)
+    setBusy(true); setError(null)
     try {
       await goIdleValidator(wif, wallet.account!, url)
-      setDone(true)
+      toast.success('Validator is now idle')
       const v = await fetchValidator(wallet.account!)
       setValidator(v)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transaction failed')
+      toast.error(err instanceof Error ? err.message : 'Transaction failed')
     } finally { setBusy(false); setStep('idle') }
   }
 
@@ -134,12 +135,12 @@ export default function ValidatorManagePage() {
   async function handleConfirmProps() {
     const wif = wallet.keyFor('active')
     if (!wif || !pendingProps) { setError('Active key required'); return }
-    setBusy(true); setError(null); setDone(false)
+    setBusy(true); setError(null)
     try {
       await updateChainProperties(wif, wallet.account!, pendingProps)
-      setDone(true)
+      toast.success('Chain-properties vote submitted')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transaction failed')
+      toast.error(err instanceof Error ? err.message : 'Transaction failed')
     } finally { setBusy(false); setStep('idle'); setPendingProps(null) }
   }
 
@@ -184,7 +185,6 @@ export default function ValidatorManagePage() {
       )}
 
       {error && <p className="font-prose text-sm text-acc-red">{error}</p>}
-      {done && <p className="font-prose text-sm text-acc-green">✓ Submitted</p>}
 
       {step === 'confirm-register' ? (
         <div className="flex flex-col gap-3 rounded border border-border bg-surface p-4">
