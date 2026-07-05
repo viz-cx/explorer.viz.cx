@@ -63,3 +63,29 @@ def test_dispatch_dedupes_same_op_for_same_owner():
 def test_dispatch_no_watchers_writes_nothing():
     notifications.dispatch(_op("transfer", {"from": "bob", "to": "x"}))
     assert _notifs("alice") == []
+
+
+def _bearer(account):
+    from helpers import sessions
+    return {"Authorization": f"Bearer {sessions.create_session(account)}"}
+
+
+def test_count_and_mark_read_endpoints(client, _viz):
+    watchlist.ensure_indexes()
+    notifications.ensure_indexes()
+    watchlist.add("alice", "bob")
+    notifications.dispatch(_op("transfer", {"from": "bob", "to": "x"}, op_id=1.0001))
+    notifications.dispatch(_op("transfer", {"from": "bob", "to": "y"}, op_id=2.0001))
+    h = _bearer("alice")
+    assert client.get("/notifications/count", headers=h).json()["unread"] == 2
+    listed = client.get("/notifications", headers=h).json()["notifications"]
+    assert len(listed) == 2
+    first_id = listed[0]["id"]
+    assert client.post("/notifications/read", json={"ids": [first_id]}, headers=h).json()["updated"] == 1
+    assert client.get("/notifications/count", headers=h).json()["unread"] == 1
+    assert client.post("/notifications/read", json={"all": True}, headers=h).json()["updated"] == 1
+    assert client.get("/notifications/count", headers=h).json()["unread"] == 0
+
+
+def test_notifications_require_bearer(client, _viz):
+    assert client.get("/notifications/count").status_code == 401

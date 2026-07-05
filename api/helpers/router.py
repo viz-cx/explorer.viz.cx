@@ -6,6 +6,7 @@ from endpoints import (
     auth,
     blocks,
     key_references,
+    notifications,
     others,
     profile,
     richlist,
@@ -20,6 +21,7 @@ router.include_router(others.router)
 router.include_router(auth.router)
 router.include_router(session.router)
 router.include_router(watchlist.router)
+router.include_router(notifications.router)
 router.include_router(analytics.router)
 router.include_router(key_references.router)
 router.include_router(blocks.router)
