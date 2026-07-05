@@ -42,7 +42,7 @@ export default async function SendAward() {
   return (
     <>
       <p>
-        Awards are VIZ's core social mechanic — they transfer value from your energy reserve to a
+        Awards are VIZ&apos;s core social mechanic — they transfer value from your energy reserve to a
         recipient, funding the reward pool. This guide shows how to send an award using{' '}
         <code>@viz-cx/core</code>.
       </p>

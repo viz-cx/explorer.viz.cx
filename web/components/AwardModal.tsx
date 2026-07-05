@@ -26,12 +26,15 @@ export function AwardModal({ open, onClose, receiver }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  // Reset transient state on close (render-phase, so it lands before paint).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
     if (!open) {
       setCustomInput(''); setMemo(''); setError(null)
       setEnergyPct(25); setAvailableEnergy(null)
     }
-  }, [open])
+  }
 
   useEffect(() => {
     if (!open || !wallet.account) return

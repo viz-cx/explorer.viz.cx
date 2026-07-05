@@ -1,7 +1,7 @@
 'use client'
 import {
   createContext, useCallback, useContext, useEffect, useMemo,
-  useReducer, useRef, useState, type ReactNode,
+  useReducer, useRef, useSyncExternalStore, type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -76,9 +76,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   )
 }
 
+const subscribeNoop = () => () => {}
+
 function ToastViewport({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  // Render only after hydration so the portal target (document.body) exists.
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false)
   if (!mounted) return null
 
   return createPortal(

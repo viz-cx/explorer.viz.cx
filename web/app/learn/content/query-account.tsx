@@ -71,7 +71,7 @@ export default async function QueryAccount() {
 
       <h3>Step 2 — Read balances and energy via SDK</h3>
       <p>
-        <strong>Energy</strong> (<code>0–10000</code>) is VIZ's core voting-power mechanic. Awards
+        <strong>Energy</strong> (<code>0–10000</code>) is VIZ&apos;s core voting-power mechanic. Awards
         cost energy; it regenerates fully in 5 days.
       </p>
       <CodeBlock code={SDK} lang="typescript" />

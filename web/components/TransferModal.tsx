@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useWallet } from '@/lib/wallet'
 import { useToast } from '@/lib/toast'
 import { sendTransfer } from '@/lib/actions'
@@ -22,11 +22,12 @@ export function TransferModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      setTo(''); setAmount(''); setMemo(''); setStep('form'); setError(null)
-    }
-  }, [open])
+  // Reset transient state on close (render-phase, so it lands before paint).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
+    if (!open) { setTo(''); setAmount(''); setMemo(''); setStep('form'); setError(null) }
+  }
 
   function handleFormSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()

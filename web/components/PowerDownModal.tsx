@@ -30,16 +30,20 @@ export function PowerDownModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  // Reset on close / flag the status fetch on open (render-phase, before paint).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
     if (!open) {
       setAmount(''); setStep('form'); setError(null); setActiveStatus(null)
+    } else if (wallet.account) {
+      setLoadingStatus(true)
     }
-  }, [open])
+  }
 
   useEffect(() => {
     if (!open || !wallet.account) return
     let cancelled = false
-    setLoadingStatus(true)
     const transport = createHttpTransport(NODE_ENDPOINTS[0])
     const api = createReadApi(transport)
     api.getAccounts([wallet.account])

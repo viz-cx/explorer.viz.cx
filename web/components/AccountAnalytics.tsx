@@ -23,9 +23,15 @@ export function AccountAnalytics({ account }: { account: string }) {
   const [data, setData] = useState<Analytics | null>(null);
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
 
+  // Reset to the loading state when the account changes (render-phase, before paint).
+  const [prevAccount, setPrevAccount] = useState(account);
+  if (prevAccount !== account) {
+    setPrevAccount(account);
+    setState("loading");
+  }
+
   useEffect(() => {
     let live = true;
-    setState("loading");
     getAccountAnalytics(account).then((res) => {
       if (!live) return;
       if (!res) {

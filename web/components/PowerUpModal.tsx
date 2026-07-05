@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useWallet } from '@/lib/wallet'
 import { useToast } from '@/lib/toast'
 import { powerUp } from '@/lib/actions'
@@ -18,13 +18,13 @@ export function PowerUpModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      setAmount(''); setError(null)
-    } else {
-      setTo(wallet.account ?? '')
-    }
-  }, [open, wallet.account])
+  // Reset on close / seed the target on open (render-phase, before paint).
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (prevOpen !== open) {
+    setPrevOpen(open)
+    if (!open) { setAmount(''); setError(null) }
+    else setTo(wallet.account ?? '')
+  }
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()

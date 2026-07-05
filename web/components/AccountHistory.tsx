@@ -60,12 +60,20 @@ export function AccountHistory({ account }: { account: string }) {
     [account],
   );
 
-  useEffect(() => {
+  // Reset the list when the account changes (render-phase, before paint).
+  const [prevAccount, setPrevAccount] = useState(account);
+  if (prevAccount !== account) {
+    setPrevAccount(account);
     setEntries([]);
     setDone(false);
     setCursor(null);
-    load(-1);
-  }, [account, load]);
+  }
+
+  useEffect(() => {
+    void (async () => {
+      await load(-1);
+    })();
+  }, [load]);
 
   // Auto-load the next older page when the sentinel scrolls into view.
   useEffect(() => {

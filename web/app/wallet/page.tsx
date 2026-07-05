@@ -44,10 +44,16 @@ export default function WalletPage() {
   const [powerDownOpen, setPowerDownOpen] = useState(false)
   const [delegateOpen, setDelegateOpen] = useState(false)
 
+  // Flag loading when the connected account changes (render-phase, before paint).
+  const [prevAccount, setPrevAccount] = useState(wallet.account)
+  if (prevAccount !== wallet.account) {
+    setPrevAccount(wallet.account)
+    if (wallet.connected && wallet.account) setLoading(true)
+  }
+
   useEffect(() => {
     if (!wallet.connected || !wallet.account) return
     let cancelled = false
-    setLoading(true)
     const transport = createHttpTransport(NODE_ENDPOINTS[0])
     const api = createReadApi(transport)
     Promise.allSettled([
