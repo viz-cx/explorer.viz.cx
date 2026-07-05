@@ -17,6 +17,12 @@ const sans = Inter({
   display: "swap",
 });
 
+// Nonce-based CSP (see proxy.ts) requires every page to render at request time
+// so Next can stamp the per-request nonce onto its inline scripts. Forcing it
+// here covers all nested routes; per-page `revalidate`/ISR is disabled as a
+// result (each request re-renders and re-fetches upstream data).
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://viz.cx"),
   title: {

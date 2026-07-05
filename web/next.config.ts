@@ -1,33 +1,13 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-// Content-Security-Policy. Shipped Report-Only first (see headers() below): the
-// browser reports violations without blocking, so we can watch for breakage
-// before flipping to an enforcing `Content-Security-Policy` header.
+// Content-Security-Policy is now set per-request in proxy.ts, which injects a
+// fresh nonce so we can enforce it (Report-Only + 'unsafe-inline' scripts is
+// gone). It can't live here because next.config headers() are static and a
+// nonce must vary per request.
 //
-// connect-src lists the two data tiers (api.viz.cx REST + ws feed, node.viz.cx
-// JSON-RPC, api.viz.world RPC fallback). Fonts are self-hosted by next/font at
-// build time, so font-src 'self' is sufficient. script-src still needs
-// 'unsafe-inline' for Next's hydration bootstrap — move to per-request nonces
-// before switching this policy from Report-Only to enforcing.
-const CSP = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
-  "font-src 'self'",
-  "connect-src 'self' https://api.viz.cx wss://api.viz.cx https://node.viz.cx https://api.viz.world",
-  "worker-src 'self' blob:",
-  "manifest-src 'self'",
-  "upgrade-insecure-requests",
-].join("; ");
-
-// Enforced on every response. These are safe to turn on immediately — unlike
-// CSP they don't risk breaking a rendered page.
+// Enforced on every response, including static assets. These are safe to turn
+// on unconditionally — unlike CSP they don't risk breaking a rendered page.
 const SECURITY_HEADERS = [
   {
     key: "Strict-Transport-Security",
@@ -40,7 +20,6 @@ const SECURITY_HEADERS = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   },
-  { key: "Content-Security-Policy-Report-Only", value: CSP },
 ];
 
 const nextConfig: NextConfig = {

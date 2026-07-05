@@ -6,8 +6,6 @@ import { AccountChip } from "@/components/AccountChip";
 import { getChainInfo } from "@/lib/api";
 import { assetAmount, compact } from "@/lib/format";
 
-export const revalidate = 5;
-
 export default async function Home() {
   const info = await getChainInfo();
   const head = info?.head_block_number;

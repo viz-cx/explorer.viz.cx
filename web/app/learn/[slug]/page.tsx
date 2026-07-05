@@ -17,10 +17,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: meta?.title ?? 'Tutorial' }
 }
 
-export function generateStaticParams() {
-  return TUTORIALS.map((t) => ({ slug: t.slug }))
-}
-
 function renderContent(slug: string) {
   switch (slug) {
     case 'read-first-block': return <ReadFirstBlock />

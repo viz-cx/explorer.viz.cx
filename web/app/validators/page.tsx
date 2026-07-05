@@ -7,7 +7,6 @@ import { ValidatorsTable, type ValidatorRow } from "@/components/tables/Validato
 import { assetAmount, sharesToViz } from "@/lib/format";
 import { ManageValidatorLink } from "@/components/ManageValidatorLink";
 
-export const revalidate = 30;
 export const metadata: Metadata = { title: "Validators" };
 
 interface RawValidator {

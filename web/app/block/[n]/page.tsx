@@ -12,11 +12,6 @@ import { formatUTC, timeAgo } from "@/lib/format";
 import type { Block } from "@viz-cx/core";
 import type { OpRecord } from "@/lib/types";
 
-// Finalized blocks are immutable, but a reversible block (served live from the
-// node, see below) is transient for the ~10-block confirmation window. Keep the
-// ISR window short so the tip stays fresh and converges to the indexed version.
-export const revalidate = 10;
-
 function parseNum(n: string): number | null {
   if (!/^\d+$/.test(n)) return null;
   const v = Number(n);
