@@ -8,6 +8,7 @@ import { AccountAnalytics } from "@/components/AccountAnalytics";
 import { AccountHistory } from "@/components/AccountHistory";
 import { AccountChip } from "@/components/AccountChip";
 import { AwardButton } from "@/components/AwardButton";
+import { WatchToggle } from "@/components/WatchToggle";
 import {
   assetAmount,
   bareAccount,
@@ -64,6 +65,7 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">@{user}</h1>
             <AwardButton receiver={user} />
+            <WatchToggle account={user} />
           </div>
           {displayName && <p className="font-prose text-sm text-fg-muted">{displayName}</p>}
           <p className="mt-0.5 font-prose text-xs text-fg-dim">
