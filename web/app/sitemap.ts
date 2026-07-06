@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { TUTORIALS } from "./learn/page";
+import { TUTORIALS } from "./learn/tutorials";
 
 const BASE = "https://viz.cx";
 

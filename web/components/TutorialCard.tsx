@@ -5,7 +5,7 @@ export interface TutorialMeta {
   title: string
   description: string
   time: string
-  difficulty: 'beginner' | 'intermediate'
+  difficulty: 'beginner' | 'intermediate' | 'advanced'
 }
 
 export function TutorialCard({ meta }: { meta: TutorialMeta }) {
