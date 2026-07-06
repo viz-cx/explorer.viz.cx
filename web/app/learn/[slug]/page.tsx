@@ -49,7 +49,7 @@ export default async function TutorialPage({ params }: Props) {
   if (!meta) return notFound()
 
   return (
-    <div className="max-w-2xl flex flex-col gap-8">
+    <div className="mx-auto max-w-4xl flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <Link href="/learn" className="font-prose text-xs text-fg-dim hover:text-fg">
           ← Learn
