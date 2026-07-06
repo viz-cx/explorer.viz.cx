@@ -1,0 +1,7 @@
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+minimumReleaseAgeExclude:
+  - '@viz-cx/api@0.1.0'
+  - '@viz-cx/api@0.1.3'
+  - '@viz-cx/core@0.7.0'
