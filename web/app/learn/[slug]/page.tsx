@@ -7,9 +7,13 @@ import QueryAccount from '../content/query-account'
 import StreamLiveOps from '../content/stream-live-ops'
 import SendAward from '../content/send-award'
 import TransferViz from '../content/transfer-viz'
+import PowerUpDown from '../content/power-up-down'
+import DelegateShares from '../content/delegate-shares'
 import OnboardWithInvites from '../content/onboard-with-invites'
+import SignInWithViz from '../content/sign-in-with-viz'
 import Webhooks from '../content/webhooks'
 import BuildTipBot from '../content/build-tip-bot'
+import CustomAppData from '../content/custom-app-data'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -28,9 +32,13 @@ function renderContent(slug: string) {
     case 'stream-live-ops':      return <StreamLiveOps />
     case 'send-award':           return <SendAward />
     case 'transfer-viz':         return <TransferViz />
+    case 'power-up-down':        return <PowerUpDown />
+    case 'delegate-shares':      return <DelegateShares />
     case 'onboard-with-invites': return <OnboardWithInvites />
+    case 'sign-in-with-viz':     return <SignInWithViz />
     case 'webhooks':             return <Webhooks />
     case 'build-tip-bot':        return <BuildTipBot />
+    case 'custom-app-data':      return <CustomAppData />
     default:                     return null
   }
 }
