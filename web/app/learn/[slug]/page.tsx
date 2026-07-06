@@ -1,11 +1,15 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { TUTORIALS } from '../page'
+import { TUTORIALS } from '../tutorials'
 import ReadFirstBlock from '../content/read-first-block'
 import QueryAccount from '../content/query-account'
 import StreamLiveOps from '../content/stream-live-ops'
 import SendAward from '../content/send-award'
+import TransferViz from '../content/transfer-viz'
+import OnboardWithInvites from '../content/onboard-with-invites'
+import Webhooks from '../content/webhooks'
+import BuildTipBot from '../content/build-tip-bot'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -19,11 +23,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 function renderContent(slug: string) {
   switch (slug) {
-    case 'read-first-block': return <ReadFirstBlock />
-    case 'query-account':    return <QueryAccount />
-    case 'stream-live-ops':  return <StreamLiveOps />
-    case 'send-award':       return <SendAward />
-    default:                 return null
+    case 'read-first-block':     return <ReadFirstBlock />
+    case 'query-account':        return <QueryAccount />
+    case 'stream-live-ops':      return <StreamLiveOps />
+    case 'send-award':           return <SendAward />
+    case 'transfer-viz':         return <TransferViz />
+    case 'onboard-with-invites': return <OnboardWithInvites />
+    case 'webhooks':             return <Webhooks />
+    case 'build-tip-bot':        return <BuildTipBot />
+    default:                     return null
   }
 }
 
