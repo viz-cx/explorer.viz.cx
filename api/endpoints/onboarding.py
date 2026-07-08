@@ -23,6 +23,32 @@ class RegisterResponse(BaseModel):
     username: str
 
 
+class InviteRequest(BaseModel):
+    member: str
+
+
+class InviteResponse(BaseModel):
+    claim_secret: str
+
+
+@router.post("/invite", response_model=InviteResponse)
+async def create_invite(body: InviteRequest) -> InviteResponse:
+    """Create a funded invite and return the claim secret (private WIF).
+
+    - Returns ``429 invite_limit_reached`` if the member has hit their daily cap.
+    - Returns ``500 invite_creation_failed`` if broadcast fails for any reason.
+    """
+    if not svc.within_rate_limit(body.member):
+        raise HTTPException(status_code=429, detail="invite_limit_reached")
+
+    try:
+        claim_secret = svc.create_funded_invite()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="invite_creation_failed") from exc
+
+    return InviteResponse(claim_secret=claim_secret)
+
+
 @router.post("/register", response_model=RegisterResponse)
 async def register(body: RegisterRequest) -> RegisterResponse:
     """Register a new account using an invite secret.
