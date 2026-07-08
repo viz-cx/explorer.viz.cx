@@ -33,6 +33,8 @@ No build step — it's plain HTML/CSS/JS. The mount is conditional on the direct
 | `COLLECTION` | No | MongoDB collection name (default: `blocks`) |
 | `VIZ_SERVICE_ACCOUNT` | Yes (production) | VIZ network account name used as the `initiator` for onboarding registrations |
 | `VIZ_SERVICE_ACTIVE_KEY` | Yes (production) | WIF-encoded active key for `VIZ_SERVICE_ACCOUNT`, used to sign invite registration transactions |
+| `VIZ_DEMO_ACCOUNT` | No | Demo account username for App Store reviewers via `/demo/session` |
+| `VIZ_DEMO_REGULAR_KEY` | No | WIF-encoded regular key for the demo account via `/demo/session` |
 
 ### Onboarding endpoints
 
