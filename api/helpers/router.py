@@ -8,6 +8,7 @@ from endpoints import (
     key_references,
     notifications,
     others,
+    people,
     profile,
     richlist,
     session,
@@ -18,6 +19,7 @@ from endpoints import (
 
 router = APIRouter()
 router.include_router(others.router)
+router.include_router(people.router)
 router.include_router(auth.router)
 router.include_router(session.router)
 router.include_router(watchlist.router)
