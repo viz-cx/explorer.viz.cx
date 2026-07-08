@@ -7,6 +7,7 @@ from endpoints import (
     blocks,
     key_references,
     notifications,
+    onboarding,
     others,
     people,
     profile,
@@ -19,6 +20,7 @@ from endpoints import (
 
 router = APIRouter()
 router.include_router(others.router)
+router.include_router(onboarding.router)
 router.include_router(people.router)
 router.include_router(auth.router)
 router.include_router(session.router)
