@@ -1,25 +1,18 @@
 """Onboarding service — account registration via invite on the VIZ network.
 
-Implementation note on broadcast_invite_registration
------------------------------------------------------
-viz-python-lib (vizbase.operations) does NOT include an Invite_registration
-operation class, so the standard Signed_Transaction serialization path is
-unavailable.  The function below raises NotImplementedError until the
-operation class is added to the library or a custom binary-serializer is
-wired in.  All production callers must monkeypatch this function in tests
-(see api/tests/test_onboarding_register.py) and replace it with a real
-implementation in a follow-up task.
-
-Implementation note on create_funded_invite / _broadcast_create_invite
------------------------------------------------------------------------
-viz-python-lib (vizbase.operations) does NOT include a CreateInvite operation
-class either.  _broadcast_create_invite always raises NotImplementedError.
-Callers must monkeypatch create_funded_invite in tests.
+Operation serialization
+-----------------------
+viz-python-lib 1.1.0 registers the ``create_invite`` / ``invite_registration``
+operation *ids* but ships no matching ``GrapheneObject`` serializer classes.
+Those classes live locally in ``services.viz_invite_ops`` and are broadcast
+through a signing client (``helpers.viz.get_signing_client``) that holds the
+service account's active key in an in-RAM key store.
 
 Env vars required (production only):
   VIZ_SERVICE_ACCOUNT     — service account name on the VIZ network
   VIZ_SERVICE_ACTIVE_KEY  — WIF active key for that account
   INVITE_DAILY_CAP        — max invites per member per UTC day (default 5)
+  INVITE_BALANCE          — VIZ funded into each invite (default "1.000 VIZ")
 """
 
 import os
@@ -44,22 +37,21 @@ def broadcast_invite_registration(
 ) -> None:
     """Broadcast an invite_registration operation to the VIZ network.
 
-    This requires the service account's active key (VIZ_SERVICE_ACTIVE_KEY)
-    and uses the service account as *initiator*.
-
-    .. warning::
-        NOT IMPLEMENTED — vizbase.operations has no Invite_registration class
-        so binary serialization via Signed_Transaction is unavailable.
-        This stub is always monkeypatched in tests.  Replace with a real
-        implementation once viz-python-lib gains the operation class or a
-        custom serializer is provided.
+    Signs with the service account's active key (VIZ_SERVICE_ACTIVE_KEY),
+    using *initiator* as the authorizing account. The op is built with the
+    local ``Invite_registration`` serializer (see viz_invite_ops) since
+    viz-python-lib 1.1.0 ships no such class.
     """
-    _service_key = os.environ.get("VIZ_SERVICE_ACTIVE_KEY")  # noqa: F841 (read for env check)
-    raise NotImplementedError(
-        "broadcast_invite_registration is not yet implemented: "
-        "vizbase.operations does not include Invite_registration. "
-        "Track as DONE_WITH_CONCERNS in task-0.2-report.md."
+    from helpers.viz import get_signing_client
+    from services.viz_invite_ops import Invite_registration
+
+    op = Invite_registration(
+        initiator=initiator,
+        new_account_name=new_account_name,
+        invite_secret=invite_secret,
+        new_account_key=new_account_key,
     )
+    get_signing_client().finalizeOp(op, initiator, "active")
 
 
 # ---------------------------------------------------------------------------
@@ -87,17 +79,23 @@ def within_rate_limit(member: str) -> bool:
     return result["count"] <= cap
 
 
-def _broadcast_create_invite(pub_key: str) -> None:  # pragma: no cover
+def _broadcast_create_invite(pub_key: str) -> None:
     """Broadcast a create_invite operation to the VIZ network.
 
-    .. warning::
-        NOT IMPLEMENTED — vizbase.operations has no CreateInvite class so
-        binary serialization via Signed_Transaction is unavailable.
-        This stub always raises.  Monkeypatch ``create_funded_invite`` in tests.
+    The service account (VIZ_SERVICE_ACCOUNT) funds the invite with
+    ``INVITE_BALANCE`` (default ``1.000 VIZ``) and signs with its active key.
+    ``pub_key`` is the invite's public key; the matching private WIF is handed
+    back to the new member as the claim secret. Built with the local
+    ``Create_invite`` serializer since viz-python-lib 1.1.0 ships no such class.
     """
-    raise NotImplementedError(
-        "create_invite op not in viz-python-lib 1.1.0"
-    )
+    from helpers.viz import get_signing_client
+    from services.viz_invite_ops import Create_invite
+
+    creator = os.environ.get("VIZ_SERVICE_ACCOUNT", "")
+    balance = os.environ.get("INVITE_BALANCE", "1.000 VIZ")
+
+    op = Create_invite(creator=creator, balance=balance, invite_key=pub_key)
+    get_signing_client().finalizeOp(op, creator, "active")
 
 
 def create_funded_invite() -> str:
@@ -105,13 +103,9 @@ def create_funded_invite() -> str:
 
     Returns the private key WIF so the caller can hand it to the new member
     as the ``claim_secret``.
-
-    .. warning::
-        The broadcast step is not implemented (see _broadcast_create_invite).
-        All production callers must monkeypatch this function in tests.
     """
     from vizbase.account import PrivateKey
 
     key = PrivateKey()
     _broadcast_create_invite(str(key.pubkey))
-    return key.wif
+    return str(key)

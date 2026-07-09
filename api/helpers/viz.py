@@ -62,6 +62,24 @@ def get_client() -> Any:
     return viz
 
 
+_signing_client: Any = None
+
+
+def get_signing_client() -> Any:
+    """Return a VIZ client that can sign with the service account's active key.
+
+    Requires ``VIZ_SERVICE_ACTIVE_KEY`` in the environment. The key is held in
+    an in-RAM key store (the ``keys=`` argument), so nothing is written to the
+    on-disk wallet database. The client is cached after first use."""
+    global _signing_client
+    if _signing_client is None:
+        key = os.environ.get("VIZ_SERVICE_ACTIVE_KEY")
+        if not key:
+            raise RuntimeError("VIZ_SERVICE_ACTIVE_KEY is not set")
+        _signing_client = VIZ(node=nodes[0], keys=[key])
+    return _signing_client
+
+
 def get_ops_in_block(block: int, only_virtual: bool) -> Any:
     client = get_client()
     return client.rpc.get_ops_in_block(block, 1 if only_virtual else 0)
