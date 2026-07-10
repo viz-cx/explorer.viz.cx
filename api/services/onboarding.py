@@ -12,7 +12,8 @@ Env vars required (production only):
   VIZ_SERVICE_ACCOUNT     — service account name on the VIZ network
   VIZ_SERVICE_ACTIVE_KEY  — WIF active key for that account
   INVITE_DAILY_CAP        — max invites per member per UTC day (default 5)
-  INVITE_BALANCE          — VIZ funded into each invite (default "1.000 VIZ")
+  INVITE_BALANCE          — VIZ funded into each invite (default: the chain's
+                            create_invite_min_balance property)
 """
 
 import os
@@ -82,20 +83,27 @@ def within_rate_limit(member: str) -> bool:
 def _broadcast_create_invite(pub_key: str) -> None:
     """Broadcast a create_invite operation to the VIZ network.
 
-    The service account (VIZ_SERVICE_ACCOUNT) funds the invite with
-    ``INVITE_BALANCE`` (default ``1.000 VIZ``) and signs with its active key.
-    ``pub_key`` is the invite's public key; the matching private WIF is handed
-    back to the new member as the claim secret. Built with the local
-    ``Create_invite`` serializer since viz-python-lib 1.1.0 ships no such class.
+    The service account (VIZ_SERVICE_ACCOUNT) funds the invite and signs with
+    its active key. ``pub_key`` is the invite's public key; the matching private
+    WIF is handed back to the new member as the claim secret. Built with the
+    local ``Create_invite`` serializer since viz-python-lib 1.1.0 ships no such
+    class.
+
+    The funded amount is ``INVITE_BALANCE`` if set, otherwise the chain's
+    ``create_invite_min_balance`` property (the network rejects invites funded
+    below that minimum), so the default is always valid without hardcoding it.
     """
     from helpers.viz import get_signing_client
     from services.viz_invite_ops import Create_invite
 
     creator = os.environ.get("VIZ_SERVICE_ACCOUNT", "")
-    balance = os.environ.get("INVITE_BALANCE", "1.000 VIZ")
+    client = get_signing_client()
+    balance = os.environ.get("INVITE_BALANCE") or client.rpc.get_chain_properties()[
+        "create_invite_min_balance"
+    ]
 
     op = Create_invite(creator=creator, balance=balance, invite_key=pub_key)
-    get_signing_client().finalizeOp(op, creator, "active")
+    client.finalizeOp(op, creator, "active")
 
 
 def create_funded_invite() -> str:

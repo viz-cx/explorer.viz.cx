@@ -74,11 +74,20 @@ def test_create_invite_rejects_bad_asset():
         bytes(Create_invite(creator="alice", balance="5.000 XXX", invite_key=PUBKEY))
 
 
+class _FakeRpc:
+    def __init__(self, min_balance="10.000 VIZ"):
+        self._min_balance = min_balance
+
+    def get_chain_properties(self):
+        return {"create_invite_min_balance": self._min_balance}
+
+
 class _FakeSigningClient:
     """Records finalizeOp calls instead of broadcasting."""
 
-    def __init__(self):
+    def __init__(self, min_balance="10.000 VIZ"):
         self.calls = []
+        self.rpc = _FakeRpc(min_balance)
 
     def finalizeOp(self, op, account, permission):
         self.calls.append((type(op).__name__, account, permission, op.json()))
@@ -104,6 +113,20 @@ def test_create_funded_invite_broadcasts_create_invite(monkeypatch):
     assert payload["creator"] == "kudos.service"
     assert payload["balance"] == "3.000 VIZ"
     assert payload["invite_key"].startswith("VIZ")
+
+
+def test_create_funded_invite_defaults_balance_to_chain_minimum(monkeypatch):
+    import helpers.viz as vizmod
+    import services.onboarding as ob
+
+    monkeypatch.setenv("VIZ_SERVICE_ACCOUNT", "kudos.service")
+    monkeypatch.delenv("INVITE_BALANCE", raising=False)
+    fake = _FakeSigningClient(min_balance="10.000 VIZ")
+    monkeypatch.setattr(vizmod, "get_signing_client", lambda: fake)
+
+    ob.create_funded_invite()
+
+    assert fake.calls[-1][3]["balance"] == "10.000 VIZ"
 
 
 def test_broadcast_invite_registration_signs_with_active(monkeypatch):
