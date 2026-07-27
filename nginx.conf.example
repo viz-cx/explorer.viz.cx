@@ -8,7 +8,7 @@
 server {
     listen 80;
     server_name node.viz.cx;
-    return 308 https://rpc.viz.cx:19443$request_uri;
+    return 308 https://rpc.viz.cx$request_uri;
 }
 
 server {
