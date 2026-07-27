@@ -32,13 +32,12 @@ logger = logging.getLogger(__name__)
 
 # node.viz.cx is the legacy public VIZ RPC name. It is reverse-proxied (not
 # 308-redirected) to the live node so the clean, portless URL survives end to
-# end — clients never see :19443. The node lives on a box whose :443 is held by
-# the VPN's xray, so the node itself can only be served on :19443; this app (on
-# axveer, where kamal-proxy owns :443) is the one host that can present it on a
-# standard port.
+# end. The node moved to martin 2026-07-27 (the old vpn-amnezia box died) and is
+# now served on standard :443 by martin's Caddy — so the upstream is portless
+# https://rpc.viz.cx (was :19443 while the box's :443 was held by the VPN's xray).
 LEGACY_RPC_HOST = "node.viz.cx"
-RPC_UPSTREAM = "https://rpc.viz.cx:19443"
-RPC_WS_UPSTREAM = "wss://rpc.viz.cx:19443"
+RPC_UPSTREAM = "https://rpc.viz.cx"
+RPC_WS_UPSTREAM = "wss://rpc.viz.cx"
 # Per-IP cap on the public node.viz.cx HTTP proxy. Generous by design — the
 # explorer's own client islands hit this from the browser, so a single active
 # user makes many calls; this is an anti-abuse ceiling, not a fair-use quota.

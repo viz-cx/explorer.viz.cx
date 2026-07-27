@@ -1,8 +1,8 @@
 """node.viz.cx host-scoped reverse proxy (middleware + ws route in main.py).
 
 The legacy public VIZ RPC name is transparently proxied to the live node
-(https://rpc.viz.cx:19443) with method, path and query preserved, so clients
-stay on the clean portless URL — no 308, no :19443. Every other Host —
+(https://rpc.viz.cx) with method, path and query preserved, so clients
+stay on the clean portless URL — no 308. Every other Host —
 including the container-address Host that kamal-proxy healthchecks send — is
 untouched.
 """
@@ -39,7 +39,7 @@ def test_node_viz_cx_post_is_reverse_proxied(client, monkeypatch):
     # forwarded to the live node with method, path and query preserved
     args, kwargs = fake.request.call_args
     assert args[0] == "POST"
-    assert args[1] == "https://rpc.viz.cx:19443/some/path?foo=bar"
+    assert args[1] == "https://rpc.viz.cx/some/path?foo=bar"
     assert kwargs["content"] == b'{"id":1}'
 
 
@@ -53,7 +53,7 @@ def test_node_viz_cx_with_port_is_proxied(client, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert fake.request.call_args.args[1] == "https://rpc.viz.cx:19443/"
+    assert fake.request.call_args.args[1] == "https://rpc.viz.cx/"
 
 
 def test_stale_length_and_encoding_headers_are_dropped(client, monkeypatch):
