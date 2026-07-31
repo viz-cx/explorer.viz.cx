@@ -7,7 +7,12 @@ import pytest
 def test_root_endpoint(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"chain_id": "test"}
+    body = response.json()
+    assert body["chain_id"] == "test"
+    # None (no heartbeat recorded yet) or a small float (another test in this
+    # session exercised live_stream) — helpers.live_health is process-global.
+    age = body["live_stream_heartbeat_age_sec"]
+    assert age is None or age >= 0
 
 
 def test_unhandled_error_propagates(client):
