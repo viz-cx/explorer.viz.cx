@@ -13,7 +13,8 @@
 # Raw blocks live in `blocks` (renamed from the legacy `blocks4`). The derived
 # `ops`/`rollups`/`posts` collections were dropped — the API is raw-blocks-only;
 # anything derived is recomputed from `blocks` or read off-chain by the frontend.
-# Chain feed: the VIZ RPC node on vpn-amnezia. The app calls mongo AND the node
+# Chain feed: the public VIZ RPC node (rpc.viz.cx, on martin since 2026-07-27 —
+# it moved off the now-dead vpn-amnezia box). The app calls mongo AND the node
 # during boot (lifespan: init_node + ensure_indexes), so it relies on
 # platform-up.sh's mongo bridge onto the kamal network — hostname `mongo`
 # resolves at container boot; the post-deploy hook adds platform_net after.
@@ -78,7 +79,7 @@ env:
 
 builder:
   arch: amd64
-  remote: ssh://axveer-builder   # build on vpn-amnezia, not the laptop. Bare alias:
+  remote: ssh://axveer-builder   # native amd64 build on martin, not the laptop. Bare
   local: false                   # user/port fall back to ssh: above (deploy/666) +
                                  # ~/.ssh/config axveer-builder host. See infra
                                  # docs/runbook-remote-builder.md.
