@@ -12,6 +12,16 @@ from viz import Client as VIZ
 logger = logging.getLogger(__name__)
 
 
+# grapheneapi's rpcexec() calls session.post() with no timeout, so a stalled
+# TCP connection (e.g. the far end silently disappearing during a node
+# migration) hangs the calling thread forever — no exception, no retry, no
+# log line. This bit us for real: the live_stream thread hung this way across
+# the 2026-07-27 martin migration and stayed silently dead for days. Inject a
+# default timeout so a stall surfaces as a normal requests.Timeout, which the
+# callers' existing retry loops already handle.
+_RPC_TIMEOUT = (5, 15)  # (connect, read) seconds
+
+
 def _patched_get_request_session(self: Any) -> requests.Session:
     # Upstream get_request_session reads a private attr that is unset when
     # Http.__init__ hasn't run; the miss falls through to Rpc.__getattr__,
@@ -20,6 +30,13 @@ def _patched_get_request_session(self: Any) -> requests.Session:
     session = self.__dict__.get("_request_session")
     if session is None:
         session = requests.Session()
+        _orig_request = session.request
+
+        def _request_with_timeout(method, url, **kwargs):
+            kwargs.setdefault("timeout", _RPC_TIMEOUT)
+            return _orig_request(method, url, **kwargs)
+
+        session.request = _request_with_timeout
         self.__dict__["_request_session"] = session
     return session
 

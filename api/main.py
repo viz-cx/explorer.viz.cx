@@ -21,7 +21,7 @@ from helpers.observability import init_sentry  # noqa: E402
 from helpers.richlist_snapshot import run_richlist  # noqa: E402
 from helpers.router import router  # noqa: E402
 from helpers.viz import init_node  # noqa: E402
-from parser.live_stream import start_live_stream  # noqa: E402
+from parser.live_stream import start_live_stream, start_live_stream_watchdog  # noqa: E402
 from parser.parser import start_parsing  # noqa: E402
 
 logging.basicConfig(
@@ -60,6 +60,7 @@ def _start_background_workers() -> None:
     Thread(target=start_parsing, daemon=True, name="parser").start()
     if os.getenv("LIVE_STREAM_ENABLED", "1") == "1":
         Thread(target=start_live_stream, daemon=True, name="live_stream").start()
+        Thread(target=start_live_stream_watchdog, daemon=True, name="live_stream_watchdog").start()
     if os.getenv("RICHLIST_ENABLED", "1") == "1":
         Thread(target=run_richlist, daemon=True, name="richlist").start()
 

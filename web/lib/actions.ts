@@ -11,11 +11,15 @@ import {
   type TransactionResult,
   type Wif,
 } from '@viz-cx/core'
+import { BroadcastUnconfirmedError, CONFIRM_TIMEOUT_MS, watchForOp } from './broadcast-confirm'
 import { NODE_ENDPOINTS } from './config'
 import { NULL_SIGNING_KEY } from './validator'
 
 // The VIZ node's broadcast_transaction_synchronous hangs indefinitely for
-// non-expired transactions on this node setup. Use the async variant instead.
+// non-expired transactions on this node setup. Use the async variant instead —
+// and because that variant only confirms the *call* was accepted, not that the
+// tx validated, wait for the op to actually appear on the live stream before
+// reporting success. See lib/broadcast-confirm.ts.
 function makeBroadcastTransport(inner: Transport): Transport {
   return {
     call: inner.call.bind(inner),
@@ -28,8 +32,22 @@ function makeBroadcastTransport(inner: Transport): Transport {
         extensions: signed.extensions,
         signatures: signed.signatures,
       }
-      await inner.call('network_broadcast_api.broadcast_transaction', [wire])
-      return { id: '', blockNum: 0, expiration: signed.expiration }
+      // Every action here builds a single-op tx, so the first op identifies it.
+      const first = signed.operations[0]
+      const watcher = first ? watchForOp(first[0], first[1]) : null
+      try {
+        const listening = watcher ? await watcher.opened : false
+        await inner.call('network_broadcast_api.broadcast_transaction', [wire])
+        // No live stream to confirm against: fall back to the old unverified
+        // behaviour rather than failing a tx that most likely went through.
+        if (!watcher || !listening) return { id: '', blockNum: 0, expiration: signed.expiration }
+
+        const outcome = await watcher.waitForMatch(CONFIRM_TIMEOUT_MS)
+        if (outcome.status !== 'confirmed') throw new BroadcastUnconfirmedError()
+        return { id: '', blockNum: outcome.blockNum, expiration: signed.expiration }
+      } finally {
+        watcher?.stop()
+      }
     },
   }
 }
