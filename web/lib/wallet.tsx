@@ -5,12 +5,14 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from 'react'
 import { keys, createHttpTransport, createReadApi, type Wif } from '@viz-cx/core'
 import { saveWallet, loadWallet, clearWallet } from './wallet-storage'
 import { resolveRoleMap, keyForRole, signableRoles, type WalletRole } from './wallet-roles'
 import { API_BASE, NODE_ENDPOINTS } from './config'
+import { useToast } from './toast'
 
 export type ModalMode = 'connect' | 'add-key'
 
@@ -96,6 +98,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<ModalMode>('connect')
 
+  const toast = useToast()
+  const storageWarned = useRef(false)
+
+  // Fires at most once per session: the connect itself succeeded, only
+  // persistence was lost, so this must not read as a failure.
+  const warnNotPersisted = useCallback(() => {
+    if (storageWarned.current) return
+    storageWarned.current = true
+    toast.error("This browser blocks secure storage — you'll need to reconnect on your next visit.")
+  }, [toast])
+
   useEffect(() => {
     loadWallet()
       .then((stored) => {
@@ -116,11 +129,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const connect = useCallback(async (acc: string, input: string): Promise<WalletRole[]> => {
     const map = await resolveKeyRoles(acc, input)
     const keysToStore = Object.fromEntries(map) as { regular?: Wif; active?: Wif }
-    await saveWallet(acc, keysToStore as { regular?: string; active?: string })
+    const { persisted } = await saveWallet(acc, keysToStore as { regular?: string; active?: string })
+    if (!persisted) warnNotPersisted()
     setAccount(acc)
     setWalletKeys(keysToStore)
     return [...map.keys()]
-  }, [])
+  }, [warnNotPersisted])
 
   const discoverAccounts = useCallback(
     (input: string): Promise<AccountMatch[]> => discoverByKey(input),
@@ -135,11 +149,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         regular?: Wif
         active?: Wif
       }
-      await saveWallet(account, newKeys as { regular?: string; active?: string })
+      const { persisted } = await saveWallet(account, newKeys as { regular?: string; active?: string })
+      if (!persisted) warnNotPersisted()
       setWalletKeys(newKeys)
       return [...map.keys()]
     },
-    [account, walletKeys]
+    [account, walletKeys, warnNotPersisted]
   )
 
   const disconnect = useCallback(() => {
