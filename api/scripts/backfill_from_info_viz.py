@@ -18,6 +18,13 @@ Design
   retry-with-backoff. We are a guest on someone else's site; do not hammer it.
 * **Idempotent / resumable** — blocks already present are skipped; re-run after
   any interruption fills only what is still missing.
+* **Remembers dead blocks** — a block info.viz.world answers "Missing data" for
+  is recorded in a ledger collection (``<COLLECTION>.unavailable``) and skipped
+  on every later run. Without this, a restart re-fetches the whole
+  known-unavailable set at ``BACKFILL_SLEEP`` each — gap 1 accumulated ~80k dead
+  blocks, so a single restart burned ~22h re-proving them (observed 2026-08-01,
+  frontier crawled 79.78M→80.06M with ``filled=0``). Only the durable
+  "Missing data" verdict is recorded; transient fetch errors are not.
 * **Sequential prev-timestamp carry** — VIZ block interval is 3s; a signed op
   (and the virtual ops it generates) carries the *previous* block's formation
   time, while block-level vops (validator_reward) carry this block's own time.
@@ -69,6 +76,14 @@ BACKFILL_SLEEP               seconds between blocks (default 1.0).
 BACKFILL_TX_SLEEP            seconds between tx-page fetches (default 0.3).
 BACKFILL_MAX_RETRIES         retries per HTTP fetch (default 4).
 BACKFILL_BATCH               blocks per insert flush / progress line (default 200).
+BACKFILL_RETRY_UNAVAILABLE   "1" → ignore the dead-block ledger and re-probe
+                             every hole (use for an occasional sweep in case
+                             info.viz.world has since filled its own gaps).
+BACKFILL_SEED_DEAD_UPTO      block number → one-shot migration, no scraping: mark
+                             every block in START..N that is absent from the
+                             blocks collection as dead, then exit. N must be a
+                             frontier a previous run already swept past, so
+                             "absent" really means "attempted and not served".
 VALIDATE                     "1" → dry-run diff vs golden, no writes.
 """
 
@@ -251,6 +266,40 @@ def _diff(ops: list[dict], gold_block: list[dict]) -> list[str]:
     return issues
 
 # ---------------------------------------------------------------------------
+# Dead-block ledger seeding (one-shot migration)
+# ---------------------------------------------------------------------------
+
+def _seed_dead(coll, dead, start: int, upto: int, batch: int) -> int:
+    """Backfill the ledger for a range an earlier, pre-ledger run already swept.
+
+    Anything in ``start..upto`` still absent from the blocks collection was
+    fetched and refused by the source, so it is dead by construction. A handful
+    may instead be transient fetch failures (the run that swept gap 1 logged 39
+    against ~80k genuine holes); ``BACKFILL_RETRY_UNAVAILABLE=1`` re-probes
+    everything and recovers them.
+    """
+    from pymongo.errors import BulkWriteError  # noqa: PLC0415
+
+    print(f"SEED DEAD LEDGER: {start:,}–{upto:,} — no scraping", flush=True)
+    seeded = scanned = 0
+    now = dt.datetime.now(dt.UTC)
+    lo = start
+    while lo <= upto:
+        hi = min(lo + batch * 50 - 1, upto)
+        present = {d["_id"] for d in coll.find({"_id": {"$gte": lo, "$lte": hi}}, {"_id": 1})}
+        docs = [{"_id": n, "at": now} for n in range(lo, hi + 1) if n not in present]
+        scanned += hi - lo + 1
+        if docs:
+            try:
+                seeded += len(dead.insert_many(docs, ordered=False).inserted_ids)
+            except BulkWriteError as bwe:
+                seeded += bwe.details.get("nInserted", 0)
+        lo = hi + 1
+    print(f"seeded {seeded:,} dead block(s) out of {scanned:,} scanned", flush=True)
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -262,6 +311,7 @@ def main() -> int:
     max_retries = int(os.getenv("BACKFILL_MAX_RETRIES", "4"))
     batch = int(os.getenv("BACKFILL_BATCH", "200"))
     validate = os.getenv("VALIDATE") == "1"
+    retry_unavailable = os.getenv("BACKFILL_RETRY_UNAVAILABLE") == "1"
     if start > end:
         print(f"nothing to do: start {start} > end {end}", flush=True)
         return 0
@@ -271,15 +321,22 @@ def main() -> int:
           f"sleep={sleep_s}s tx_sleep={tx_sleep}s", flush=True)
 
     # Writers need the DB handle; readers (validate) never touch Mongo.
-    coll = None
+    coll = dead = None
     if not validate:
         from helpers.mongo import coll as _coll  # noqa: PLC0415
         coll = _coll
+        # Sibling collection "<COLLECTION>.unavailable" — the dead-block ledger.
+        dead = _coll["unavailable"]
 
-    filled = ok = mism = unavailable = errors = 0
+    seed_upto = int(os.getenv("BACKFILL_SEED_DEAD_UPTO", "0"))
+    if seed_upto and coll is not None:
+        return _seed_dead(coll, dead, start, min(seed_upto, end), batch)
+
+    filled = ok = mism = unavailable = errors = known = 0
     opfields = {"types": {}, "max_trx_in_block": 0, "max_op_in_trx": 0}
     missing_ranges: list = []
     buf: list = []
+    dead_buf: list = []
     prev_num = prev_ts = None
 
     def record_missing(n):
@@ -288,38 +345,65 @@ def main() -> int:
         else:
             missing_ranges.append([n, n])
 
-    def flush():
-        nonlocal filled
-        if not buf or coll is None:
-            buf.clear()
-            return
+    def record_dead(n):
+        """Persist the source's durable 'Missing data' verdict so later runs
+        skip this block instead of re-proving it one sleep at a time."""
+        record_missing(n)
+        if dead is not None:
+            dead_buf.append({"_id": n, "at": dt.datetime.now(dt.UTC)})
+
+    def _insert_many(target, docs):
+        """Bulk insert tolerating duplicates; returns the number inserted."""
         from pymongo.errors import BulkWriteError  # noqa: PLC0415
         try:
-            filled += len(coll.insert_many(buf, ordered=False).inserted_ids)
+            return len(target.insert_many(docs, ordered=False).inserted_ids)
         except BulkWriteError as bwe:
-            filled += bwe.details.get("nInserted", 0)
+            return bwe.details.get("nInserted", 0)
+
+    def flush():
+        nonlocal filled
+        if buf and coll is not None:
+            filled += _insert_many(coll, buf)
         buf.clear()
+        if dead_buf and dead is not None:
+            _insert_many(dead, dead_buf)
+        dead_buf.clear()
+
+    def _ids(target, lo, hi):
+        return {d["_id"] for d in target.find({"_id": {"$gte": lo, "$lte": hi}}, {"_id": 1})}
 
     def present_ids(lo, hi):
         if coll is None:
             return set()
-        return {d["_id"] for d in coll.find({"_id": {"$gte": lo, "$lte": hi}}, {"_id": 1})}
+        return _ids(coll, lo, hi)
+
+    def dead_ids(lo, hi):
+        """Blocks already proven absent at the source — skip unless re-probing."""
+        if dead is None or retry_unavailable:
+            return set()
+        return _ids(dead, lo, hi)
 
     try:
         lo = start
         while lo <= end:
             hi = min(lo + batch - 1, end)
             already = present_ids(lo, hi)
+            known_dead = dead_ids(lo, hi)
             for num in range(lo, hi + 1):
                 if num in already:
                     prev_num, prev_ts = None, None  # ts unknown across skips; re-derive
+                    continue
+                if num in known_dead:
+                    known += 1
+                    record_missing(num)
+                    prev_num, prev_ts = None, None
                     continue
                 pts = prev_ts if prev_num == num - 1 else None
                 try:
                     ops, formation_ts = reconstruct(num, pts, max_retries, tx_sleep)
                 except BlockMissing:
                     unavailable += 1
-                    record_missing(num)
+                    record_dead(num)
                     prev_num, prev_ts = num, None
                     continue
                 except RuntimeError as exc:
@@ -355,8 +439,8 @@ def main() -> int:
             flush()
             done = hi - start + 1
             tail = (f"ok={ok} mism={mism}" if validate else f"filled={filled}")
-            print(f"… {hi:,} ({tail} unavail={unavailable} err={errors}) "
-                  f"{done * 100 // (end - start + 1)}%", flush=True)
+            print(f"… {hi:,} ({tail} unavail={unavailable} known-dead={known} "
+                  f"err={errors}) {done * 100 // (end - start + 1)}%", flush=True)
             lo = hi + 1
     except KeyboardInterrupt:
         flush()
@@ -369,7 +453,8 @@ def main() -> int:
         print(f"mismatches    : {mism}", flush=True)
     else:
         print(f"newly filled  : {filled:,}", flush=True)
-    print(f"unavailable   : {unavailable:,} (info.viz.world's own hole)", flush=True)
+    print(f"unavailable   : {unavailable:,} (info.viz.world's own hole, newly proven)", flush=True)
+    print(f"known dead    : {known:,} (skipped via ledger, not re-fetched)", flush=True)
     print(f"fetch errors  : {errors:,}", flush=True)
     print(f"op types seen : {len(opfields['types'])} -> {sorted(opfields['types'])}", flush=True)
     print(f"max trx_in_block={opfields['max_trx_in_block']} max op_in_trx={opfields['max_op_in_trx']}", flush=True)
