@@ -43,6 +43,24 @@ def test_save_block_nonempty_explicit_number_wins():
     assert "block" not in stored["block"][0]  # per-op block field stripped
 
 
+def test_missing_block_is_404_not_500(client):
+    """The archive has holes by design, so a block we never stored is an
+    ordinary 404. It used to be a 500: find_one returned None and the endpoint's
+    `-> dict` annotation blew up in response validation, turning every probe of
+    a hole block into an unhandled exception."""
+    response = client.get("/blocks/79999999")
+    assert response.status_code == 404
+
+
+def test_stored_block_is_returned(client):
+    from helpers import mongo
+
+    mongo.save_block([], 4243)
+    response = client.get("/blocks/4243")
+    assert response.status_code == 200
+    assert response.json() == {"_id": 4243, "block": []}
+
+
 def test_save_block_duplicate_is_idempotent():
     """Re-saving an already-stored block must be a no-op, not raise. A
     DuplicateKeyError here previously crash-looped the parser (tip frozen at
