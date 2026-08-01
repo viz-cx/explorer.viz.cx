@@ -1,3 +1,5 @@
+import { encryptWith, decryptWith } from './wallet-crypto'
+
 const EK_KEY = 'viz_wallet_ek'
 const WALLET_KEY = 'viz_wallet'
 
@@ -18,36 +20,14 @@ async function getOrCreateEk(): Promise<CryptoKey> {
   return key
 }
 
-export async function encryptWif(wif: string, ek: CryptoKey): Promise<string> {
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const encoded = new TextEncoder().encode(wif)
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, ek, encoded)
-  const combined = new Uint8Array(12 + ciphertext.byteLength)
-  combined.set(iv)
-  combined.set(new Uint8Array(ciphertext), 12)
-  return btoa(String.fromCharCode(...combined))
-}
-
-export async function decryptWif(ciphertext: string, ek: CryptoKey): Promise<string | null> {
-  try {
-    const combined = Uint8Array.from(atob(ciphertext), (c) => c.charCodeAt(0))
-    const iv = combined.slice(0, 12)
-    const data = combined.slice(12)
-    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, ek, data)
-    return new TextDecoder().decode(plain)
-  } catch {
-    return null
-  }
-}
-
 export async function saveWallet(
   account: string,
   walletKeys: { regular?: string; active?: string }
 ): Promise<void> {
   const ek = await getOrCreateEk()
   const encrypted: { regular?: string; active?: string } = {}
-  if (walletKeys.regular) encrypted.regular = await encryptWif(walletKeys.regular, ek)
-  if (walletKeys.active) encrypted.active = await encryptWif(walletKeys.active, ek)
+  if (walletKeys.regular) encrypted.regular = await encryptWith(ek, walletKeys.regular)
+  if (walletKeys.active) encrypted.active = await encryptWith(ek, walletKeys.active)
   localStorage.setItem(WALLET_KEY, JSON.stringify({ account, keys: encrypted }))
 }
 
@@ -65,12 +45,12 @@ export async function loadWallet(): Promise<StoredWallet | null> {
   const ek = await getOrCreateEk()
   const decrypted: { regular?: string; active?: string } = {}
   if (keys.regular) {
-    const dec = await decryptWif(keys.regular, ek)
+    const dec = await decryptWith(ek, keys.regular)
     if (!dec) return null
     decrypted.regular = dec
   }
   if (keys.active) {
-    const dec = await decryptWif(keys.active, ek)
+    const dec = await decryptWith(ek, keys.active)
     if (!dec) return null
     decrypted.active = dec
   }
