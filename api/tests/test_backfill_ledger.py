@@ -7,6 +7,9 @@ re-proving what it already knew and filled nothing. These tests pin the ledger
 that makes that work stick.
 """
 import contextlib
+import urllib.error
+
+import pytest
 
 import scripts.backfill_from_info_viz as bf
 from helpers.mongo import coll
@@ -76,6 +79,67 @@ def test_retry_unavailable_reprobes_the_ledger(monkeypatch):
 
     _run(monkeypatch, 100, 102, now_served, BACKFILL_RETRY_UNAVAILABLE="1")
     assert sorted(d["_id"] for d in coll.find({})) == [100, 101, 102]
+
+
+def test_a_bad_page_never_kills_the_pass(monkeypatch):
+    """The sidecar restarts on exit and re-sweeps from BACKFILL_START, so an
+    escaping exception is an outage, not a skipped block: a JSONDecodeError at
+    80,385,244 killed every gap-1 pass at 81% for a day."""
+    def blows_up(num, prev_ts, retries, tx_sleep):
+        if num == 102:
+            raise ValueError("some page shape we have never seen")
+        return _ops(num), "2026-04-01T00:00:00"
+
+    assert _run(monkeypatch, 100, 104, blows_up) == 0
+    assert sorted(d["_id"] for d in coll.find({})) == [100, 101, 103, 104]
+    assert _ledger_ids() == []  # unknown cause — must stay re-probeable
+
+
+def test_malformed_source_json_is_a_durable_verdict(monkeypatch):
+    """info.viz.world drops an escaping level on op payloads containing a quote
+    (block 80,385,244). No retry fixes that, so it belongs in the ledger."""
+    def corrupt(num, prev_ts, retries, tx_sleep):
+        raise bf.BlockMissing(num, "malformed op JSON at source (...)")
+
+    assert _run(monkeypatch, 100, 102, corrupt) == 0
+    assert _ledger_ids() == [100, 101, 102]
+
+
+def test_ops_table_converts_the_sources_own_bad_json(monkeypatch):
+    """Verbatim from info.viz.world's tx page for block 80,385,244: the custom
+    op's memo is a quoted phrase, and the page renders the inner quote as
+    ``\\&quot;`` where ``\\\\&quot;`` belongs — one backslash short of valid."""
+    row = (
+        '<tr><td>custom</td><td><div class="view-json" data-type="custom">'
+        '{&quot;id&quot;:&quot;V&quot;,&quot;json&quot;:&quot;{\\&quot;t\\&quot;:'
+        '\\&quot;\\\\&quot;Ash nazg\\\\&quot; #viz_magic\\&quot;}&quot;}'
+        '</div></td></tr>'
+    )
+    with pytest.raises(bf.BlockMissing) as caught:
+        bf._ops_table(row, 80_385_244)
+    assert "malformed op JSON" in caught.value.reason
+
+
+def test_404_is_not_retried_and_is_recorded_as_dead(monkeypatch):
+    """A 404 is deterministic: four retries just burn 2+4+8s of backoff to be
+    told the same thing. Gap 1 re-probed 16 of them on every pass."""
+    calls = []
+
+    class Fake404(urllib.error.HTTPError):
+        def __init__(self):
+            super().__init__("http://x/", 404, "Not Found", {}, None)
+
+    def opener(req, timeout=None):
+        calls.append(req.full_url)
+        raise Fake404
+
+    monkeypatch.setattr(bf.urllib.request, "urlopen", opener)
+    monkeypatch.setattr(bf.time, "sleep", lambda s: pytest.fail("backed off on a 404"))
+
+    with pytest.raises(bf.BlockMissing) as caught:
+        bf.reconstruct(100, None, max_retries=4, tx_sleep=0)
+    assert caught.value.reason == "HTTP 404"
+    assert len(calls) == 1  # not 4
 
 
 def test_transient_fetch_errors_are_not_recorded_as_dead(monkeypatch):
