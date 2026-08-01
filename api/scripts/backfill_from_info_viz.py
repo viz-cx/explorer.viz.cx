@@ -18,13 +18,21 @@ Design
   retry-with-backoff. We are a guest on someone else's site; do not hammer it.
 * **Idempotent / resumable** — blocks already present are skipped; re-run after
   any interruption fills only what is still missing.
-* **Remembers dead blocks** — a block info.viz.world answers "Missing data" for
-  is recorded in a ledger collection (``<COLLECTION>.unavailable``) and skipped
-  on every later run. Without this, a restart re-fetches the whole
-  known-unavailable set at ``BACKFILL_SLEEP`` each — gap 1 accumulated ~80k dead
-  blocks, so a single restart burned ~22h re-proving them (observed 2026-08-01,
-  frontier crawled 79.78M→80.06M with ``filled=0``). Only the durable
-  "Missing data" verdict is recorded; transient fetch errors are not.
+* **Remembers dead blocks** — a block the source cannot serve is recorded in a
+  ledger collection (``<COLLECTION>.unavailable``) and skipped on every later
+  run. Without this, a restart re-fetches the whole known-unavailable set at
+  ``BACKFILL_SLEEP`` each — gap 1 accumulated ~80k dead blocks, so a single
+  restart burned ~22h re-proving them (observed 2026-08-01, frontier crawled
+  79.78M→80.06M with ``filled=0``). Only durable verdicts are recorded — the
+  "Missing data" page, a 404, or an op payload the source itself wrote as
+  invalid JSON; transient fetch errors are not.
+* **Survives any single bad page** — the sidecar runs under
+  ``--restart unless-stopped``, so an escaping exception is not a skipped block,
+  it is a *restart* that re-sweeps the range from ``BACKFILL_START``. Gap 1 spent
+  2026-08-01 in exactly that loop: an unhandled ``JSONDecodeError`` at
+  80,385,244 killed every pass at 81%, ~1,700 blocks short of the 292k-block
+  region no pass had ever reached. The per-block handler in ``main()`` is what
+  keeps a source defect from becoming an outage.
 * **Sequential prev-timestamp carry** — VIZ block interval is 3s; a signed op
   (and the virtual ops it generates) carries the *previous* block's formation
   time, while block-level vops (validator_reward) carry this block's own time.
@@ -101,6 +109,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 
 INFO = "https://info.viz.world"
@@ -116,9 +125,16 @@ BLOCK_INTERVAL_S = 3
 # HTTP
 # ---------------------------------------------------------------------------
 
+class SourceNotFound(Exception):
+    """The source answered 404 — its verdict, not a hiccup."""
+
+
 def _get(url: str, max_retries: int) -> str:
     """GET with backoff. info.viz.world rate-limits with empty 200s under load,
-    so an empty body is treated as a retryable transient failure."""
+    so an empty body is treated as a retryable transient failure. A 404 is not:
+    it is deterministic, so retrying only burns the 2+4+8s backoff and asks the
+    same question again — gap 1 has 16 such blocks and re-probed all of them on
+    every pass (~4 min each sweep) without one ever succeeding."""
     delay = 2.0
     last = None
     for attempt in range(1, max_retries + 1):
@@ -129,6 +145,10 @@ def _get(url: str, max_retries: int) -> str:
             if body.strip():
                 return body
             last = "empty body (rate-limited?)"
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                raise SourceNotFound(url) from exc
+            last = exc
         except Exception as exc:  # noqa: BLE001
             last = exc
         if attempt < max_retries:
@@ -193,7 +213,29 @@ def _minus_interval(iso: str) -> str:
 # ---------------------------------------------------------------------------
 
 class BlockMissing(Exception):
-    """info.viz.world has no data for this block (its own hole)."""
+    """info.viz.world cannot give us a usable block. Three durable verdicts:
+    its "Missing data" page (its own hole), a 404, or an ops payload it wrote as
+    invalid JSON. None of them changes on a retry, so all three are ledgered;
+    ``BACKFILL_RETRY_UNAVAILABLE=1`` re-probes them if the source — or our
+    parser — later improves."""
+
+    def __init__(self, num: int, reason: str = "missing data"):
+        super().__init__(f"block {num}: {reason}")
+        self.num = num
+        self.reason = reason
+
+
+def _ops_table(section_html: str, num: int) -> list[tuple[str, dict, bool]]:
+    """Parse an ops table, turning the source's own JSON defects into a verdict.
+
+    info.viz.world drops an escaping level on op payloads that contain a quote:
+    block 80,385,244 carries a custom op whose memo is a quoted phrase and the
+    page renders ``\\"`` where ``\\\\"`` belongs, so json.loads raises. Left
+    uncaught that killed the whole pass — see the catch-all in main()."""
+    try:
+        return _parse_ops_table(section_html)
+    except json.JSONDecodeError as exc:
+        raise BlockMissing(num, f"malformed op JSON at source ({exc})") from exc
 
 
 def reconstruct(num: int, prev_ts: str | None, max_retries: int, tx_sleep: float):
@@ -202,7 +244,10 @@ def reconstruct(num: int, prev_ts: str | None, max_retries: int, tx_sleep: float
     ``prev_ts`` is block N−1's formation time (ISO); signed ops use it. If None,
     falls back to block_ts − one interval.
     """
-    doc = _get(f"{INFO}/explorer/block/{num}/", max_retries)
+    try:
+        doc = _get(f"{INFO}/explorer/block/{num}/", max_retries)
+    except SourceNotFound as exc:
+        raise BlockMissing(num, "HTTP 404") from exc
     if "Missing data" in doc:
         raise BlockMissing(num)
     block_ts = _block_timestamp(doc)
@@ -212,10 +257,13 @@ def reconstruct(num: int, prev_ts: str | None, max_retries: int, tx_sleep: float
     for trx_in_block, txhash in enumerate(_tx_hashes(doc)):
         if tx_sleep:
             time.sleep(tx_sleep)
-        txdoc = _get(f"{INFO}/explorer/tx/{txhash}/", max_retries)
+        try:
+            txdoc = _get(f"{INFO}/explorer/tx/{txhash}/", max_retries)
+        except SourceNotFound as exc:
+            raise BlockMissing(num, f"HTTP 404 on tx {txhash}") from exc
         op_in_trx = -1
         vop_seq = 0
-        for op_type, op_json, is_virtual in _parse_ops_table(_section(txdoc, "Операции")):
+        for op_type, op_json, is_virtual in _ops_table(_section(txdoc, "Операции"), num):
             if not is_virtual:
                 op_in_trx += 1
                 vop_seq = 0
@@ -233,7 +281,7 @@ def reconstruct(num: int, prev_ts: str | None, max_retries: int, tx_sleep: float
                 })
 
     vop_seq = 0
-    for op_type, op_json, _ in _parse_ops_table(_section(doc, "Виртуальные операции")):
+    for op_type, op_json, _ in _ops_table(_section(doc, "Виртуальные операции"), num):
         vop_seq += 1
         ops.append({
             "trx_in_block": BLOCK_VOP_TRX_IN_BLOCK, "op_in_trx": 0,
@@ -408,15 +456,24 @@ def main() -> int:
                 pts = prev_ts if prev_num == num - 1 else None
                 try:
                     ops, formation_ts = reconstruct(num, pts, max_retries, tx_sleep)
-                except BlockMissing:
+                except BlockMissing as miss:
                     unavailable += 1
+                    if miss.reason != "missing data":
+                        print(f"  · {num:,} unusable at source: {miss.reason}", flush=True)
                     record_dead(num)
                     prev_num, prev_ts = num, None
                     continue
-                except RuntimeError as exc:
+                except Exception as exc:  # noqa: BLE001
+                    # Exhausted retries, an unseen page shape, a parser bug — all
+                    # transient as far as the ledger goes (a fix must be able to
+                    # retry them). What matters is that NONE of them may escape:
+                    # the sidecar restarts on exit and re-sweeps from the start,
+                    # so a single unparseable page cost gap 1 every pass it ran
+                    # (observed 2026-08-01 — a JSONDecodeError at 80,385,244 died
+                    # at 81%, ~1,700 blocks short of the unswept region).
                     errors += 1
                     record_missing(num)
-                    print(f"  ! {exc}", flush=True)
+                    print(f"  ! {num:,}: {type(exc).__name__}: {exc}", flush=True)
                     prev_num = None
                     continue
                 prev_num, prev_ts = num, formation_ts
@@ -460,7 +517,7 @@ def main() -> int:
         print(f"mismatches    : {mism}", flush=True)
     else:
         print(f"newly filled  : {filled:,}", flush=True)
-    print(f"unavailable   : {unavailable:,} (info.viz.world's own hole, newly proven)", flush=True)
+    print(f"unavailable   : {unavailable:,} (missing/404/malformed at source, newly proven)", flush=True)
     print(f"known dead    : {known:,} (skipped via ledger, not re-fetched)", flush=True)
     print(f"fetch errors  : {errors:,}", flush=True)
     print(f"op types seen : {len(opfields['types'])} -> {sorted(opfields['types'])}", flush=True)
