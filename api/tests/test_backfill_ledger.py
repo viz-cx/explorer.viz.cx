@@ -6,6 +6,8 @@ BACKFILL_SLEEP each. Gap 1 accumulated ~80k of them: one restart burned ~22h
 re-proving what it already knew and filled nothing. These tests pin the ledger
 that makes that work stick.
 """
+import contextlib
+
 import scripts.backfill_from_info_viz as bf
 from helpers.mongo import coll
 
@@ -94,6 +96,50 @@ def test_present_blocks_are_never_marked_dead(monkeypatch):
 
     _run(monkeypatch, 100, 102, source)
     assert _ledger_ids() == [101, 102]
+
+
+def test_run_exits_after_one_pass_by_default(monkeypatch):
+    calls = []
+    monkeypatch.delenv("BACKFILL_IDLE_SLEEP", raising=False)
+    monkeypatch.delenv("VALIDATE", raising=False)
+    monkeypatch.delenv("BACKFILL_SEED_DEAD_UPTO", raising=False)
+    monkeypatch.setattr(bf, "main", lambda: calls.append(1) or 0)
+    assert bf.run() == 0
+    assert len(calls) == 1
+
+
+def test_run_idles_between_passes_instead_of_exiting(monkeypatch):
+    """Exiting hands control to --restart unless-stopped, which re-sweeps the
+    whole range immediately; gap2 burned 513 restarts that way."""
+    calls, slept = [], []
+
+    def fake_main():
+        calls.append(1)
+        if len(calls) == 3:
+            raise KeyboardInterrupt
+        return 0
+
+    monkeypatch.setenv("BACKFILL_IDLE_SLEEP", "42")
+    monkeypatch.delenv("VALIDATE", raising=False)
+    monkeypatch.delenv("BACKFILL_SEED_DEAD_UPTO", raising=False)
+    monkeypatch.setattr(bf, "main", fake_main)
+    monkeypatch.setattr(bf.time, "sleep", lambda s: slept.append(s))
+
+    with contextlib.suppress(KeyboardInterrupt):
+        bf.run()
+    assert len(calls) == 3
+    assert slept == [42, 42]
+
+
+def test_seed_run_never_idles(monkeypatch):
+    """A one-shot migration must not turn into a permanent loop."""
+    calls = []
+    monkeypatch.setenv("BACKFILL_IDLE_SLEEP", "42")
+    monkeypatch.setenv("BACKFILL_SEED_DEAD_UPTO", "100")
+    monkeypatch.delenv("VALIDATE", raising=False)
+    monkeypatch.setattr(bf, "main", lambda: calls.append(1) or 0)
+    assert bf.run() == 0
+    assert len(calls) == 1
 
 
 def test_seed_dead_upto_marks_absent_blocks_without_scraping(monkeypatch):

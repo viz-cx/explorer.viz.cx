@@ -79,6 +79,13 @@ BACKFILL_BATCH               blocks per insert flush / progress line (default 20
 BACKFILL_RETRY_UNAVAILABLE   "1" → ignore the dead-block ledger and re-probe
                              every hole (use for an occasional sweep in case
                              info.viz.world has since filled its own gaps).
+BACKFILL_IDLE_SLEEP          seconds to wait after a completed pass before
+                             re-scanning, instead of exiting (default 0 = exit).
+                             The sidecar sets this: it runs under
+                             --restart unless-stopped, so an exit is immediately
+                             restarted — gap 2 racked up 513 restarts re-sweeping
+                             its range end to end. Staying alive between passes
+                             keeps that churn off info.viz.world.
 BACKFILL_SEED_DEAD_UPTO      block number → one-shot migration, no scraping: mark
                              every block in START..N that is absent from the
                              blocks collection as dead, then exit. N must be a
@@ -465,5 +472,23 @@ def main() -> int:
     return 1 if (validate and mism) else 0
 
 
+def run() -> int:
+    """One pass, or an idling re-scan loop when BACKFILL_IDLE_SLEEP is set.
+
+    Exiting hands control to the sidecar's --restart policy, which restarts
+    instantly and re-sweeps the whole range. Idling in-process instead means the
+    next pass is a cheap Mongo scan (present + dead are both skipped) and the
+    source sees a fetch only when something new is genuinely worth trying.
+    """
+    idle = float(os.getenv("BACKFILL_IDLE_SLEEP", "0"))
+    one_shot = os.getenv("VALIDATE") == "1" or os.getenv("BACKFILL_SEED_DEAD_UPTO")
+    while True:
+        rc = main()
+        if idle <= 0 or one_shot:
+            return rc
+        print(f"\npass complete — idling {idle:.0f}s before re-scanning", flush=True)
+        time.sleep(idle)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run())
