@@ -36,6 +36,11 @@ SRC_DIR=/opt/viz-backfill
 SCRIPT_NAME=backfill_from_info_viz.py
 HERE=$(cd "$(dirname "$0")" && pwd)
 : "${BACKFILL_SLEEP:=1.0}"
+# A finished pass must NOT exit: --restart unless-stopped would relaunch it at
+# once and re-sweep the range from the start. gap2 did that 513 times and never
+# reached new work. Idle in-process instead; with the dead-block ledger a
+# re-scan is a cheap Mongo pass.
+: "${BACKFILL_IDLE_SLEEP:=3600}"
 
 # Optional explicit range (defaults to the gap-1 hole baked into the script).
 # Set both to run a second, parallel sidecar over a different gap, e.g.:
@@ -68,7 +73,7 @@ NETS=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{e
 FIRST=$(echo "$NETS" | awk '{print $1}')
 [ -n "$FIRST" ] || { echo "ERROR: API container has no networks?" >&2; exit 1; }
 
-echo "name=$NAME  image=$IMAGE  db=$DB_NAME  coll=$COLLECTION  sleep=${BACKFILL_SLEEP}s"
+echo "name=$NAME  image=$IMAGE  db=$DB_NAME  coll=$COLLECTION  sleep=${BACKFILL_SLEEP}s  idle=${BACKFILL_IDLE_SLEEP}s"
 echo "range=${BACKFILL_START:-default}-${BACKFILL_END:-default}"
 echo "networks=[$NETS]"
 
@@ -78,6 +83,7 @@ docker create --name "$NAME" --restart unless-stopped \
   --network "$FIRST" \
   -e MONGO="$MONGO" -e DB_NAME="$DB_NAME" -e COLLECTION="$COLLECTION" \
   -e BACKFILL_SLEEP="$BACKFILL_SLEEP" \
+  -e BACKFILL_IDLE_SLEEP="$BACKFILL_IDLE_SLEEP" \
   ${RANGE_ENV[@]+"${RANGE_ENV[@]}"} \
   -v "$SRC_DIR/$SCRIPT_NAME:/code/scripts/$SCRIPT_NAME:ro" \
   "$IMAGE" \
