@@ -47,7 +47,7 @@ export function ValidatorsTable({
     api.getAccounts([wallet.account])
       .then(([acc]) => {
         if (cancelled || !acc) return;
-        setVotedSet(new Set((acc['witness_votes'] as string[] | undefined) ?? []));
+        setVotedSet(new Set(((acc['validator_votes'] ?? acc['witness_votes']) as string[] | undefined) ?? []));
         setProxy((acc['proxy'] as string | undefined) ?? "");
         const levels = (acc['proxied_vsf_votes'] as (string | number)[] | undefined) ?? [];
         const rawSum = levels.reduce<number>((s, v) => s + assetAmount(v), 0);

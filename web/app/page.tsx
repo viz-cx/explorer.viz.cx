@@ -11,7 +11,10 @@ export default async function Home() {
   const head = info?.head_block_number;
   const supply = assetAmount(info?.current_supply as string | undefined);
   const vestFund = assetAmount(info?.total_vesting_fund as string | undefined);
-  const witness = (info?.current_witness as string | undefined) ?? null;
+  const witness =
+    (info?.current_validator as string | undefined) ??
+    (info?.current_witness as string | undefined) ??
+    null;
 
   return (
     <div className="flex flex-col gap-8">

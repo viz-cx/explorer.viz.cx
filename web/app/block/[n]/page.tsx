@@ -152,7 +152,11 @@ export default async function BlockPage({ params }: { params: Promise<{ n: strin
       <Card>
         <DefRow label="Timestamp">{timestamp ? formatUTC(timestamp) : "—"}</DefRow>
         <DefRow label="Validator">
-          {header?.witness ? <AccountChip name={header.witness} size={18} /> : "—"}
+          {header?.validator || header?.witness ? (
+            <AccountChip name={(header.validator ?? header.witness)!} size={18} />
+          ) : (
+            "—"
+          )}
         </DefRow>
         <DefRow label="Transactions">
           {txMap.size} {txMap.size === 1 ? "transaction" : "transactions"} · {ops.length} ops

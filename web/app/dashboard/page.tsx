@@ -17,6 +17,10 @@ export default async function DashboardPage() {
   const dao = assetAmount(info?.committee_fund as string | undefined);
   const rewards = assetAmount(info?.total_reward_fund as string | undefined);
   const liquid = Math.max(0, supply - capital - dao - rewards);
+  const currentValidator =
+    (info?.current_validator as string | undefined) ??
+    (info?.current_witness as string | undefined) ??
+    null;
 
   // Recent blocks strip (best-effort; immutable so cached hard).
   const recentNums = head ? Array.from({ length: 8 }, (_, i) => head - i) : [];
@@ -40,7 +44,7 @@ export default async function DashboardPage() {
         <StatTile label="Vesting (capital)" value={capital ? `${compact(capital)} VIZ` : "—"} tone="green" />
         <StatTile
           label="Current validator"
-          value={info?.current_witness ? <AccountChip name={info.current_witness} size={20} /> : "—"}
+          value={currentValidator ? <AccountChip name={currentValidator} size={20} /> : "—"}
         />
       </StatStrip>
 

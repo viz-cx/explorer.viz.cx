@@ -70,7 +70,7 @@ export default function ValidatorManagePage() {
       if (v) { setUrl(v.url ?? ''); setSigningKey(v.signing_key ?? '') }
     }).finally(() => { if (!cancelled) setLoading(false) })
     withNode((api) => api.getDynamicGlobalProperties())
-      .then((dgp) => fetchValidator(dgp.current_witness))
+      .then((dgp) => fetchValidator(dgp.current_validator ?? dgp.current_witness))
       .then((top) => {
         if (cancelled || !top?.props) return
         const fee = (top.props as Record<string, unknown>)['validator_declaration_fee']

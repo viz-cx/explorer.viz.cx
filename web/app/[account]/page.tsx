@@ -119,7 +119,7 @@ export default async function AccountPage({ params }: { params: Promise<{ accoun
 
           <Card>
             <SectionTitle>Governance</SectionTitle>
-            <DefRow label="Validator votes">{profile.witnesses_voted_for ?? 0}</DefRow>
+            <DefRow label="Validator votes">{profile.validators_voted_for ?? profile.witnesses_voted_for ?? 0}</DefRow>
             <DefRow label="Vote proxy">
               {profile.proxy ? <AccountChip name={profile.proxy} size={16} /> : "none"}
             </DefRow>
