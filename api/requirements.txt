@@ -1,13 +1,17 @@
-fastapi==0.128.0
+fastapi==0.141.1
 fastapi-cache2==0.2.2
 httpx==0.28.1
+# fastapi-cache2 imports starlette.templating at module scope, and starlette
+# 1.x raises there when jinja2 is missing. main.py imports fastapi_cache, so
+# without this the app won't boot. Not optional, despite nothing here using it.
+jinja2==3.1.6
 motor==3.7.1
 multiavatar==1.0.3
-pydantic==2.12.5
+pydantic==2.13.4
 pyeditorjs==1.0.0b0
-pymongo==4.15.5
-python-dotenv==1.2.1
-sentry-sdk[fastapi]==2.64.0
+pymongo==4.17.0
+python-dotenv==1.2.2
+sentry-sdk[fastapi]==2.68.0
 uvicorn==0.40.0
 viz-python-lib==1.1.0
 websockets==16.0
