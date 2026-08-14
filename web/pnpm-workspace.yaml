@@ -1,7 +1,11 @@
 allowBuilds:
+  # Only needed to fetch the sentry-cli binary for source-map upload, which
+  # runs solely when SENTRY_AUTH_TOKEN is set. It never is here, so skip it.
+  '@sentry/cli': false
   sharp: false
   unrs-resolver: false
+# Our own packages, published from the ts-core repo — they don't need the
+# supply-chain cooldown that minimumReleaseAge enforces on third parties.
+# The glob covers every future release; pnpm 11 ignores name@version pins.
 minimumReleaseAgeExclude:
-  - '@viz-cx/api@0.1.0'
-  - '@viz-cx/api@0.1.3'
-  - '@viz-cx/core@0.7.0'
+  - '@viz-cx/*'
