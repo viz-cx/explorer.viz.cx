@@ -14,6 +14,12 @@ export interface HomeStats {
   validator?: string | null;
 }
 
+/** Keyed on the displayed text at the call site, so the tick animation
+ * replays only when the visible value actually changes. */
+function Tick({ children }: { children: React.ReactNode }) {
+  return <span className="stat-in">{children}</span>;
+}
+
 /**
  * Headline stats on the home page. Seeded by the Server Component so first
  * paint stays SEO-friendly, then re-polled from the node every block — without
@@ -49,12 +55,15 @@ export function LiveStats({ initial }: { initial: HomeStats }) {
 
   const supply = assetAmount(s.supply);
   const vestFund = assetAmount(s.vestFund);
+  const headText = s.head ? s.head.toLocaleString("en-US") : null;
+  const supplyText = supply ? `${compact(supply)} VIZ` : null;
+  const vestFundText = vestFund ? `${compact(vestFund)} VIZ` : null;
 
   return (
     <StatStrip>
       <StatTile
         label="Head block"
-        value={s.head ? s.head.toLocaleString("en-US") : "—"}
+        value={headText ? <Tick key={headText}>{headText}</Tick> : "—"}
         tone="blue"
         sub={
           s.head ? (
@@ -64,15 +73,26 @@ export function LiveStats({ initial }: { initial: HomeStats }) {
           ) : undefined
         }
       />
-      <StatTile label="Current supply" value={supply ? `${compact(supply)} VIZ` : "—"} />
+      <StatTile
+        label="Current supply"
+        value={supplyText ? <Tick key={supplyText}>{supplyText}</Tick> : "—"}
+      />
       <StatTile
         label="Vesting fund"
-        value={vestFund ? `${compact(vestFund)} VIZ` : "—"}
+        value={vestFundText ? <Tick key={vestFundText}>{vestFundText}</Tick> : "—"}
         tone="green"
       />
       <StatTile
         label="Current validator"
-        value={s.validator ? <AccountChip name={s.validator} size={20} /> : "—"}
+        value={
+          s.validator ? (
+            <Tick key={s.validator}>
+              <AccountChip name={s.validator} size={20} />
+            </Tick>
+          ) : (
+            "—"
+          )
+        }
       />
     </StatStrip>
   );

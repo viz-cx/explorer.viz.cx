@@ -96,6 +96,25 @@ body {
   animation: row-in 1.2s ease-out;
 }
 
+/* Stat values tick in when they update. */
+@keyframes stat-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.stat-in {
+  display: inline-block;
+  animation: stat-in 0.35s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stat-in { animation: none; }
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(1rem); }
   to   { opacity: 1; transform: translateX(0); }
