@@ -27,7 +27,7 @@ const api = createApiClient()
 
 // Index your protocol live: subscribe to custom ops and keep the ones
 // tagged with your app id.
-const stream = api.streamOps({ op_type: 'custom' })
+const stream = api.streamOps({ opType: 'custom' })
 for await (const { body, timestamp } of stream) {
   if (body.id !== 'chess') continue          // ignore other apps' ops
   const payload = JSON.parse(body.json)

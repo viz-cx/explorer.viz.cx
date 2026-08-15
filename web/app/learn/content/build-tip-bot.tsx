@@ -19,9 +19,9 @@ const chain = createClient({
 })`
 
 const LOOP = `// Server-side filter: only transfers that involve the bot reach us.
-const stream = api.streamOps({ op_type: 'transfer', account: BOT })
+const stream = api.streamOps({ opType: 'transfer', account: BOT })
 
-// Each message is { op_id, timestamp, op_type, body }.
+// Each message is { opId, timestamp, opType, body }.
 // body is the operation itself: { from, to, amount, memo }.
 for await (const { body } of stream) {
   if (body.to !== BOT) continue                 // ignore the bot's own sends
@@ -82,7 +82,7 @@ export default async function BuildTipBot() {
 
       <h3>Step 3 — React to tips</h3>
       <p>
-        <code>streamOps</code> is an async iterable. The server-side <code>op_type</code> +{' '}
+        <code>streamOps</code> is an async iterable. The server-side <code>opType</code> +{' '}
         <code>account</code> filter means only transfers touching the bot ever arrive, so the loop
         stays cheap.
       </p>
