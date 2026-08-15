@@ -1,20 +1,12 @@
 import Link from "next/link";
 import { SearchBox } from "@/components/SearchBox";
 import { LiveFeed } from "@/components/LiveFeed";
-import { StatTile, StatStrip, Card, SectionTitle } from "@/components/ui";
-import { AccountChip } from "@/components/AccountChip";
+import { LiveStats } from "@/components/LiveStats";
+import { Card, SectionTitle } from "@/components/ui";
 import { getChainInfo } from "@/lib/api";
-import { assetAmount, compact } from "@/lib/format";
 
 export default async function Home() {
   const info = await getChainInfo();
-  const head = info?.head_block_number;
-  const supply = assetAmount(info?.current_supply as string | undefined);
-  const vestFund = assetAmount(info?.total_vesting_fund as string | undefined);
-  const witness =
-    (info?.current_validator as string | undefined) ??
-    (info?.current_witness as string | undefined) ??
-    null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -32,27 +24,18 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Headline stats */}
-      <StatStrip>
-        <StatTile
-          label="Head block"
-          value={head ? head.toLocaleString("en-US") : "—"}
-          tone="blue"
-          sub={
-            head ? (
-              <Link href={`/block/${head}`} className="hover:text-fg">
-                view latest →
-              </Link>
-            ) : undefined
-          }
-        />
-        <StatTile label="Current supply" value={supply ? `${compact(supply)} VIZ` : "—"} />
-        <StatTile label="Vesting fund" value={vestFund ? `${compact(vestFund)} VIZ` : "—"} tone="green" />
-        <StatTile
-          label="Current validator"
-          value={witness ? <AccountChip name={witness} size={20} /> : "—"}
-        />
-      </StatStrip>
+      {/* Headline stats — SSR-seeded, then live from the node */}
+      <LiveStats
+        initial={{
+          head: info?.head_block_number,
+          supply: info?.current_supply as string | undefined,
+          vestFund: info?.total_vesting_fund as string | undefined,
+          validator:
+            (info?.current_validator as string | undefined) ??
+            (info?.current_witness as string | undefined) ??
+            null,
+        }}
+      />
 
       {/* Live feed */}
       <section>
