@@ -30,10 +30,10 @@ export const metadata: Metadata = {
     template: "%s · VIZ.cx",
   },
   description:
-    "The English-first block explorer and network dashboard for the VIZ blockchain. Blocks, accounts, transactions, validators and richlist — read-only, real-time.",
+    "The block explorer and network dashboard for the VIZ blockchain. Blocks, accounts, transactions, validators and richlist — read-only, real-time.",
   openGraph: {
     title: "VIZ.cx — VIZ blockchain explorer",
-    description: "English-first block explorer and network dashboard for VIZ.",
+    description: "Block explorer and network dashboard for VIZ.",
     url: "https://viz.cx",
     siteName: "VIZ.cx",
     type: "website",
