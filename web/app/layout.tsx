@@ -24,7 +24,7 @@ const sans = Inter({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://viz.cx"),
+  metadataBase: new URL("https://network.viz.cx"),
   title: {
     default: "VIZ.cx — VIZ blockchain explorer",
     template: "%s · VIZ.cx",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "VIZ.cx — VIZ blockchain explorer",
     description: "Block explorer and network dashboard for VIZ.",
-    url: "https://viz.cx",
+    url: "https://network.viz.cx",
     siteName: "VIZ.cx",
     type: "website",
   },
