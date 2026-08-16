@@ -1,8 +1,8 @@
 # [VIZ.cx](https://viz.cx/)
 
-An English-first, one-stop UI for the [VIZ blockchain](https://github.com/VIZ-Blockchain/viz-cpp-node?tab=readme-ov-file#introducing-viz) — explorer, dashboard, wallet, and governance hub, backed by owned infrastructure. Live at [viz.cx](https://viz.cx/).
+A one-stop UI for the [VIZ blockchain](https://github.com/VIZ-Blockchain/viz-cpp-node?tab=readme-ov-file#introducing-viz) — explorer, dashboard, wallet, and governance hub, backed by owned infrastructure. Live at [viz.cx](https://viz.cx/).
 
-It consolidates capabilities previously scattered across several ecosystem sites into a single, dark-themed interface aimed at English-speaking users.
+It consolidates capabilities previously scattered across several ecosystem sites into a single, dark-themed interface.
 
 ## Features
 

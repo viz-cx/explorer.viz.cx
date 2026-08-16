@@ -16,7 +16,7 @@ export default async function Home() {
           VIZ<span className="text-fg-dim">.cx</span>
         </h1>
         <p className="max-w-xl font-prose text-sm text-fg-muted sm:text-base">
-          The English-first block explorer and network dashboard for the VIZ blockchain. Search any
+          The block explorer and network dashboard for the VIZ blockchain. Search any
           block, account, or transaction — live.
         </p>
         <div className="w-full max-w-2xl">
