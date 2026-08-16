@@ -32,6 +32,7 @@ proxy:
   hosts:
     - viz.cx
     - www.viz.cx                  # cert only — the app 308s it to the apex
+    - network.viz.cx              # new canonical host for the explorer (migration in progress)
   app_port: 3000
   ssl: true
   healthcheck:

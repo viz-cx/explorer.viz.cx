@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/notifications", "/wallet", "/search"],
     },
-    sitemap: "https://viz.cx/sitemap.xml",
-    host: "https://viz.cx",
+    sitemap: "https://network.viz.cx/sitemap.xml",
+    host: "https://network.viz.cx",
   };
 }
