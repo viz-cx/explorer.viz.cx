@@ -55,7 +55,7 @@ env:
     COLLECTION: blocks            # raw blocks (renamed from legacy `blocks4`)
     # COLLECTION_WEBHOOKS uses the code default (webhooks). The ops/rollups/posts
     # collections and their COLLECTION_OPS/COLLECTION_POSTS knobs are gone.
-    VIZ_NODES: https://rpc.viz.cx
+    VIZ_NODES: https://rpc.viz.cx,https://api.viz.world
     # Parser floor — re-jumped to the chain tip on 2026-06-29 after the index
     # froze at 80,807,024 (2026-06-15): the parser fell out of rpc.viz.cx's short
     # get_ops_in_block window, so the next block returned [] forever (fixed in
