@@ -1,20 +1,21 @@
-# Kamal deploy config for the viz.cx site frontend — Next.js (standalone) in
+# Kamal deploy config for the VIZ explorer frontend — Next.js (standalone) in
 # web/. Separate Kamal app from the API: deploy with
 #
 #   kamal deploy -c config/deploy.web.yml
 #
-# Serves the viz.cx apex (+ www.viz.cx, which the app itself 308s to the apex —
-# host-scoped redirects() in web/next.config.ts, seahava pattern). Both hosts
-# are listed under proxy.hosts so kamal-proxy issues/renews certs for both;
-# only the apex goes into infra's tls-hosts.txt (www never does).
+# Serves explorer.viz.cx (canonical) + network.viz.cx, which the app itself
+# 308s to explorer.viz.cx — host-scoped redirects() in web/next.config.ts. Both
+# hosts are listed under proxy.hosts so kamal-proxy issues/renews certs for both.
+# network.viz.cx is a grace-window alias (canonical 2026-08 → 2026-09); drop it
+# from here + DNS once traffic is gone.
+#
+# The viz.cx apex + www.viz.cx belong to the UGC platform (repo viz-cx/viz.cx,
+# Kamal app viz-cx-platform) since the 2026-09 cutover. kamal-proxy refuses
+# duplicate hosts, so they must never reappear here while that app owns them.
 #
 # Stateless — no DB, no platform_net needed. The repo's shared post-deploy hook
 # still runs and attaches the container to platform_net; that's an idempotent
 # no-op cost, not a dependency.
-#
-# History: the previous viz.cx frontend (Nuxt) lived on the legacy box
-# 138.201.117.201, which died 2026-06-12. This app replaces it on axveer,
-# starting as a "Coming soon" placeholder.
 
 service: viz-cx-web
 image:   chiliec/viz-cx-web       # GHCR: composed to ghcr.io/chiliec/viz-cx-web via registry.server
@@ -30,9 +31,8 @@ ssh:
 
 proxy:
   hosts:
-    - viz.cx
-    - www.viz.cx                  # cert only — the app 308s it to the apex
-    - network.viz.cx              # new canonical host for the explorer (migration in progress)
+    - explorer.viz.cx             # canonical
+    - network.viz.cx              # alias — the app 308s it to explorer.viz.cx
   app_port: 3000
   ssl: true
   healthcheck:

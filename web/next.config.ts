@@ -30,15 +30,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
-  // www is only a mirror — permanently redirect it to the bare apex (path +
-  // query preserved). Host-scoped to www so the proxy healthcheck (non-www
-  // Host) is never redirected. permanent:true => 308.
+  // network.viz.cx was the canonical host 2026-08 → 2026-09 and stays as an
+  // alias for a grace window — permanently redirect it to explorer.viz.cx
+  // (path + query preserved). Host-scoped so the proxy healthcheck (container
+  // address as Host) is never redirected. permanent:true => 308.
   async redirects() {
     return [
       {
         source: "/:path*",
-        has: [{ type: "host", value: "www.viz.cx" }],
-        destination: "https://viz.cx/:path*",
+        has: [{ type: "host", value: "network.viz.cx" }],
+        destination: "https://explorer.viz.cx/:path*",
         permanent: true,
       },
     ];

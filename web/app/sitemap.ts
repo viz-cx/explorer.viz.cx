@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { TUTORIALS } from "./learn/tutorials";
 
-const BASE = "https://network.viz.cx";
+const BASE = "https://explorer.viz.cx";
 
 // The crawlable, stable surface of the explorer. Per-account / per-block / per-tx
 // pages are effectively unbounded and change constantly, so they're left to
