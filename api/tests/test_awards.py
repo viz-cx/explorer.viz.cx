@@ -51,8 +51,10 @@ def test_dispatch_dedupes_same_op_id():
     assert t["count"] == 1
 
 
-def test_awards_endpoint(client):
+def test_awards_endpoint(client, _viz):
     award_stats.ensure_indexes()
+    _rate(_viz)
+    award_stats.capture_payouts(_archival_block(), 50)
     award_stats.dispatch(_op("award", {"initiator": "alice", "receiver": "bob", "memo": "post-1"}, op_id=1.0001))
     award_stats.dispatch(_op("award", {"initiator": "carol", "receiver": "bob", "memo": "post-1"}, op_id=2.0001))
 
@@ -61,4 +63,48 @@ def test_awards_endpoint(client):
     body = resp.json()
     assert body["count"] == 2
     assert set(body["initiators"]) == {"alice", "carol"}
-    assert body["total_viz"] is None
+    assert body["total_shares"] == 2.5
+    assert body["total_viz"] == 5.0
+
+
+def _archival_block(ts=dt.datetime(2026, 7, 5, tzinfo=dt.UTC)):
+    """get_ops_in_block shape after save_block: real op first, then virtuals."""
+    return [
+        {"timestamp": ts, "op": ["award", {"initiator": "alice", "receiver": "bob", "memo": "post-1", "energy": 100}]},
+        {"timestamp": ts, "op": ["receive_award", {"initiator": "alice", "receiver": "bob", "memo": "post-1", "shares": "2.500000 SHARES"}]},
+        {"timestamp": ts, "op": ["receive_award", {"initiator": "carol", "receiver": "bob", "memo": "post-2", "shares": "9.000000 SHARES"}]},
+    ]
+
+
+def _rate(viz, fund="200.000 VIZ", shares="100.000000 SHARES"):
+    viz.rpc.get_dynamic_global_properties.return_value = {
+        "last_irreversible_block_num": 100,
+        "total_vesting_fund": fund,
+        "total_vesting_shares": shares,
+    }
+    award_stats._rate_cache = (0.0, 0.0)
+
+
+def test_capture_payouts_sums_shares_and_converts_to_viz(_viz):
+    award_stats.ensure_indexes()
+    _rate(_viz)  # 2 VIZ per SHARE
+    award_stats.capture_payouts(_archival_block(), 50)
+    award_stats.capture_payouts(_archival_block(), 50)  # idempotent re-run
+    award_stats.dispatch(_op("award", {"initiator": "alice", "receiver": "bob", "memo": "post-1"}, op_id=50.0001))
+
+    t = award_stats.totals("bob", "post-1")
+    assert t["count"] == 1  # payout rows never inflate the award count
+    assert t["initiators"] == ["alice"]
+    assert t["total_shares"] == 2.5
+    assert t["total_viz"] == 5.0
+
+
+def test_totals_viz_is_null_when_rate_unavailable(_viz):
+    award_stats.ensure_indexes()
+    _viz.rpc.get_dynamic_global_properties.side_effect = RuntimeError("node down")
+    award_stats._rate_cache = (0.0, 0.0)
+    award_stats.capture_payouts(_archival_block(), 50)
+
+    t = award_stats.totals("bob", "post-1")
+    assert t["total_shares"] == 2.5
+    assert t["total_viz"] is None

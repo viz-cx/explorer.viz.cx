@@ -114,6 +114,14 @@ def convertShares(shares: str) -> float:
     return float(shares.split(" ", 1)[0])
 
 
+def vesting_rate() -> float:
+    """VIZ per SHARE at the current vesting rate (fund / total shares)."""
+    dgp = get_dgp()
+    fund = convertShares(dgp["total_vesting_fund"])
+    shares = convertShares(dgp["total_vesting_shares"])
+    return fund / shares if shares else 0.0
+
+
 # Backwards-compat alias for the old recursive function name.
 def change_node(selectFirst: bool = False) -> None:  # noqa: N802 - legacy name
     init_node(select_first=selectFirst)

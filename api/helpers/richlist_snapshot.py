@@ -13,7 +13,7 @@ import time
 from typing import Any
 
 from helpers.db_client import get_db
-from helpers.viz import convertShares, get_client
+from helpers.viz import convertShares, get_client, vesting_rate
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +22,6 @@ TOP_N = int(os.getenv("RICHLIST_SIZE", "200"))
 COLLECTION = os.getenv("RICHLIST_COLLECTION", "richlist")
 SNAPSHOT_ID = "snapshot"
 _LOOKUP_LIMIT = 1000  # graphene caps lookup_accounts / get_accounts at 1000
-
-
-def _vesting_rate() -> float:
-    """VIZ per SHARE at the current vesting rate (fund / total shares)."""
-    dgp = get_client().rpc.get_dynamic_global_properties()
-    fund = convertShares(dgp["total_vesting_fund"])
-    shares = convertShares(dgp["total_vesting_shares"])
-    return fund / shares if shares else 0.0
 
 
 def _all_account_names(client: Any) -> list[str]:
@@ -80,7 +72,7 @@ def _row(acc: dict[str, Any], rate: float) -> dict[str, Any]:
 def refresh_once() -> int:
     """Rebuild the snapshot. Returns the number of accounts scanned."""
     client = get_client()
-    rate = _vesting_rate()
+    rate = vesting_rate()
     names = _all_account_names(client)
 
     rows: list[dict[str, Any]] = []
