@@ -3,11 +3,8 @@
 #
 #   kamal deploy -c config/deploy.web.yml
 #
-# Serves explorer.viz.cx (canonical) + network.viz.cx, which the app itself
-# 308s to explorer.viz.cx — host-scoped redirects() in web/next.config.ts. Both
-# hosts are listed under proxy.hosts so kamal-proxy issues/renews certs for both.
-# network.viz.cx is a grace-window alias (canonical 2026-08 → 2026-09); drop it
-# from here + DNS once traffic is gone.
+# Serves explorer.viz.cx. (network.viz.cx was the canonical host 2026-08 →
+# 2026-09; its 308 alias was dropped 2026-09-18 after the grace window.)
 #
 # The viz.cx apex + www.viz.cx belong to the UGC platform (repo viz-cx/viz.cx,
 # Kamal app viz-cx-platform) since the 2026-09 cutover. kamal-proxy refuses
@@ -31,8 +28,7 @@ ssh:
 
 proxy:
   hosts:
-    - explorer.viz.cx             # canonical
-    - network.viz.cx              # alias — the app 308s it to explorer.viz.cx
+    - explorer.viz.cx
   app_port: 3000
   ssl: true
   healthcheck:

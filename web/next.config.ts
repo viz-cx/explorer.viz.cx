@@ -30,20 +30,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
-  // network.viz.cx was the canonical host 2026-08 → 2026-09 and stays as an
-  // alias for a grace window — permanently redirect it to explorer.viz.cx
-  // (path + query preserved). Host-scoped so the proxy healthcheck (container
-  // address as Host) is never redirected. permanent:true => 308.
-  async redirects() {
-    return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "network.viz.cx" }],
-        destination: "https://explorer.viz.cx/:path*",
-        permanent: true,
-      },
-    ];
-  },
 };
 
 // Wrap with Sentry. Source-map upload only happens when SENTRY_AUTH_TOKEN is

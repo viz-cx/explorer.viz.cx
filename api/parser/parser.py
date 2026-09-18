@@ -9,6 +9,7 @@ import os
 from time import sleep
 from typing import NoReturn
 
+from helpers import award_stats
 from helpers.mongo import get_last_blocknum, save_block
 from helpers.viz import get_client, get_last_block_in_chain, get_ops_in_block
 
@@ -78,6 +79,7 @@ def start_parsing() -> NoReturn:
                     # crash-loop (froze the tip at 81,288,426 for ~16h).
                     last_db_block = _
                     _update_key_index(block)
+                    award_stats.capture_payouts(block, _)
                     if last_db_block % 100 == 0:
                         print(f"Saved block {_} (ch: {last_chain_block})")
             else:
