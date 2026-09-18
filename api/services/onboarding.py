@@ -17,7 +17,7 @@ Env vars required (production only):
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from helpers.viz import get_client
 
@@ -69,7 +69,7 @@ def within_rate_limit(member: str) -> bool:
     from helpers.db_client import get_db
 
     db = get_db()
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     cap = int(os.environ.get("INVITE_DAILY_CAP", "5"))
     result = db["invite_counters"].find_one_and_update(
         {"member": member, "date": today},

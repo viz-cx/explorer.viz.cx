@@ -1,5 +1,4 @@
 """Tests for the /people search endpoint."""
-import pytest
 
 
 def test_short_query_returns_empty(client):

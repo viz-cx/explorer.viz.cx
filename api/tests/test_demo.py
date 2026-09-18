@@ -2,8 +2,6 @@
 
 import os
 
-import pytest
-
 
 def test_demo_session(client, monkeypatch):
     """Test demo session returns credentials when env vars are set."""

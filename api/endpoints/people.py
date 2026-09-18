@@ -1,5 +1,4 @@
 """People search endpoint — prefix-match on VIZ account usernames."""
-from typing import Optional
 
 from fastapi import APIRouter
 

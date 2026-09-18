@@ -1,6 +1,5 @@
 """Tests for watchlist storage + endpoints."""
 from graphenebase.account import PrivateKey
-from graphenebase.ecdsa import sign_message
 
 from helpers import sessions, watchlist
 
