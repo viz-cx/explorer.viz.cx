@@ -83,7 +83,7 @@ def start_parsing() -> NoReturn:
                     if last_db_block % 100 == 0:
                         print(f"Saved block {_} (ch: {last_chain_block})")
             else:
-                sleep(3)
+                sleep(1)
         except Exception as e:
             print(f"Parsing error: {str(e)}. Restart in 10 seconds.")
             sleep(10)

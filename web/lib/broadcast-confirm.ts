@@ -15,8 +15,8 @@
 import { createApiClient } from "@viz-cx/api";
 import { WS_URL } from "./config";
 
-/** How long to wait for our op to show up on the live stream. Blocks are 3s and
- * the stream polls the head every 1.5s, so a healthy tx lands well inside this. */
+/** How long to wait for our op to show up on the live stream. Blocks are 1s and
+ * the stream polls the head every 0.5s, so a healthy tx lands well inside this. */
 export const CONFIRM_TIMEOUT_MS = 20_000;
 
 /** How long to wait for the confirmation socket itself. If it never opens we

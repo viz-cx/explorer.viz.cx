@@ -1,6 +1,7 @@
 """WebSocket op stream.
 
     GET /ws/ops?op_type=transfer&account=alice
+    GET /ops/recent   — the last ops the stream emitted, to seed a fresh client
 
 Each socket subscribes to live ops emitted by *this* worker's parser (tip
 blocks only), filtered server-side. See helpers.pubsub for the multi-worker
@@ -48,6 +49,13 @@ def _build_filter(op_type: str | None, account: str | None):
         return True
 
     return matches
+
+
+@router.get("/ops/recent")
+def recent_ops() -> list[dict[str, Any]]:
+    """The last ops emitted on the live stream, newest first (same shape as a
+    `/ws/ops` message). Empty right after an API restart."""
+    return [_serialize(op) for op in pubsub.recent_ops()]
 
 
 @router.websocket("/ws/ops")

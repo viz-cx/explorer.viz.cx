@@ -45,3 +45,15 @@ def test_ws_unsubscribes_on_disconnect(client):
         pubsub.publish_op(_op(4.0, "transfer", {"from": "alice"}))
         ws.receive_json()
     assert pubsub.subscriber_count() == 0
+
+
+def test_recent_ops_newest_first_and_capped(client):
+    pubsub._recent.clear()
+    for i in range(pubsub.RECENT_OPS + 5):
+        pubsub.publish_op(_op(float(i), "transfer", {"from": "alice"}))
+    rows = client.get("/ops/recent").json()
+    assert len(rows) == pubsub.RECENT_OPS
+    assert rows[0]["op_id"] == float(pubsub.RECENT_OPS + 4)
+    assert rows[0]["op_type"] == "transfer"
+    assert rows[0]["timestamp"] == "2026-01-01T10:00:00+00:00"
+    assert rows[-1]["op_id"] == 5.0
