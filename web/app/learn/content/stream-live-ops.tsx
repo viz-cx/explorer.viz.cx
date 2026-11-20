@@ -69,7 +69,7 @@ export default async function StreamLiveOps() {
     <>
       <p>
         <code>wss://api.viz.cx/ws/ops</code> emits a message for every operation applied at the chain
-        head, typically <strong>1.5–4.5 seconds</strong> after it was signed (3s blocks, 1.5s
+        head, typically <strong>0.5–1.5 seconds</strong> after it was signed (1s blocks, 0.5s
         poller). This makes it easy to react to live awards, transfers, and other events without
         polling.
       </p>

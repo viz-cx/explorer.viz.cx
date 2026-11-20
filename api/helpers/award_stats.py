@@ -5,7 +5,7 @@ Two writers, one collection (`kind` tells them apart):
 - `award` (real op) — from the live poller via op_stream, so counts and
   initiators show up the instant the op lands in a head block.
 - `receive_award` (virtual op, carries the actual SHARES payout) — from the
-  archival parser, which is the only path that sees virtual ops (~36s behind
+  archival parser, which is the only path that sees virtual ops (~12s behind
   the head, irreversible blocks only).
 
 Best-effort: failures are logged, never block parsing.

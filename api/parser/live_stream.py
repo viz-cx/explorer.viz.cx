@@ -1,7 +1,7 @@
 """Real-time op stream from the chain head.
 
 The DB parser (parser.parser) indexes *irreversible* blocks — complete with
-virtual ops, but ~12 blocks (~36s) behind the head, since virtual ops only
+virtual ops, but ~12 blocks (~12s) behind the head, since virtual ops only
 exist once a block is final. For the live WS/webhook feed we want the actual
 transactions users submit the instant they land in a block, so this poller
 reads the head block via get_block and emits its real ops.
@@ -23,12 +23,12 @@ from helpers.viz import get_block, get_head_block_num
 
 logger = logging.getLogger(__name__)
 
-# VIZ produces a block every 3s; polling a little faster keeps tail latency low
+# VIZ produces a block every 1s; polling a little faster keeps tail latency low
 # without meaningfully more load.
-POLL_INTERVAL = float(os.getenv("LIVE_POLL_INTERVAL", "1.5"))
+POLL_INTERVAL = float(os.getenv("LIVE_POLL_INTERVAL", "0.5"))
 # Cap how far we replay after a stall so a long pause can't dump a backlog of
 # "live" ops onto subscribers all at once.
-MAX_CATCHUP = int(os.getenv("LIVE_MAX_CATCHUP", "20"))
+MAX_CATCHUP = int(os.getenv("LIVE_MAX_CATCHUP", "60"))
 # How often the watchdog checks, and how stale a heartbeat must get before it
 # alerts. Generous relative to the ~20s worst-case RPC timeout (see helpers/viz
 # _RPC_TIMEOUT) plus the 5s retry sleep, so one bad cycle doesn't page anyone.

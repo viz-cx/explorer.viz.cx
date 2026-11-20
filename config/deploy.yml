@@ -21,6 +21,7 @@
 
 service: viz-cx-api
 image:   chiliec/viz-cx-api        # GHCR: composed to ghcr.io/chiliec/viz-cx-api via registry.server
+retain_containers: 1   # one rollback version (Kamal default 5)
 
 servers:
   web:

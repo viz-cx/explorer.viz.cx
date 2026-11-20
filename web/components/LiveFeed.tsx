@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createApiClient } from "@viz-cx/api";
 import { OpRow } from "./OpRow";
-import { WS_URL } from "@/lib/config";
+import { API_BASE, WS_URL } from "@/lib/config";
 
 interface FeedOp {
   op_id?: string;
@@ -13,6 +13,28 @@ interface FeedOp {
 }
 
 const MAX_ROWS = 50;
+const RESTORE_ROWS = 30;
+
+// Last rows seen, kept across client-side navigation so coming back to the page
+// paints instantly; /ops/recent then fills in whatever landed while away (and
+// seeds a full reload).
+let lastOps: FeedOp[] = [];
+
+/** Newest-first union of two op lists. The seed and the socket overlap (an op
+ * can arrive on both), so dedupe by op_id. */
+export function mergeOps(a: FeedOp[], b: FeedOp[]): FeedOp[] {
+  const seen = new Set<string>();
+  return [...a, ...b]
+    .filter((op) => {
+      if (op.op_id == null) return true;
+      const k = String(op.op_id);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .sort((x, y) => Number(y.op_id ?? 0) - Number(x.op_id ?? 0))
+    .slice(0, MAX_ROWS);
+}
 
 /**
  * Live op feed over wss://…/ws/ops. Auto-reconnects with capped backoff via
@@ -20,10 +42,27 @@ const MAX_ROWS = 50;
  * gracefully when the socket drops.
  */
 export function LiveFeed() {
-  const [ops, setOps] = useState<FeedOp[]>([]);
+  const [ops, setOps] = useState<FeedOp[]>(lastOps);
   const [status, setStatus] = useState<"connecting" | "live" | "down">("connecting");
   const pausedRef = useRef(false);
   const bufferRef = useRef<FeedOp[]>([]);
+
+  useEffect(() => {
+    lastOps = ops.slice(0, RESTORE_ROWS);
+  }, [ops]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`${API_BASE}/ops/recent`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((seed: FeedOp[]) => {
+        if (active && seed.length) setOps((prev) => mergeOps(prev, seed));
+      })
+      .catch(() => {}); // seed is best-effort; the socket still fills the list
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const client = createApiClient({ wsUrl: WS_URL });
@@ -55,7 +94,7 @@ export function LiveFeed() {
       if (pausedRef.current || bufferRef.current.length === 0) return;
       const batch = bufferRef.current;
       bufferRef.current = [];
-      setOps((prev) => [...batch, ...prev].slice(0, MAX_ROWS));
+      setOps((prev) => mergeOps(batch, prev));
     }, 400);
 
     return () => {

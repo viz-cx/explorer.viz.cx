@@ -16,6 +16,7 @@ export function HeadBlockTicker() {
   useEffect(() => {
     let active = true;
     async function tick() {
+      if (document.hidden) return; // 1s polling: don't load the public node from background tabs
       try {
         const dgp = await withNode((api) => api.getDynamicGlobalProperties());
         if (!active) return;
@@ -26,7 +27,7 @@ export function HeadBlockTicker() {
       }
     }
     tick();
-    const id = setInterval(tick, 3000);
+    const id = setInterval(tick, 1000);
     return () => {
       active = false;
       clearInterval(id);
