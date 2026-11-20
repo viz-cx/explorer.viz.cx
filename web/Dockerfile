@@ -18,6 +18,10 @@ RUN npm run build
 FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
+# Next.js standalone binds to $HOSTNAME, which Docker sets to the container id.
+# That resolves to one network's address only; after a host reboot it can be
+# platform_net instead of kamal, and kamal-proxy gets 502. Bind every interface.
+ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
