@@ -4,8 +4,10 @@
 
 FROM node:24-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+# pnpm, same major as CI (.github/workflows/web.yml) — pnpm-lock.yaml is the
+# only lockfile; pnpm-workspace.yaml carries the overrides and build allow-list.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN npm install -g pnpm@10 && pnpm install --frozen-lockfile
 
 FROM node:24-alpine AS builder
 WORKDIR /app
