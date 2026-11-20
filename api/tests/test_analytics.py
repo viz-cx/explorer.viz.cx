@@ -93,11 +93,16 @@ def test_empty_history():
 def test_analytics_endpoint_aggregates(client, monkeypatch):
     from helpers import viz as viz_module
 
+    # Relative to now: the endpoint only aggregates a recent window, so fixed
+    # dates silently age out of it and the test starts failing.
+    now = dt.datetime.now(dt.UTC).replace(tzinfo=None)
+    two_days_ago = (now - dt.timedelta(days=2)).isoformat(timespec="seconds")
+    yesterday = (now - dt.timedelta(days=1)).isoformat(timespec="seconds")
     # One page then empty (signals end of history).
     pages = [
         [
-            [0, {"timestamp": "2026-07-01T00:00:00", "op": ["receive_award", {"receiver": "alice", "reward": "2.000000 SHARES"}]}],
-            [1, {"timestamp": "2026-07-02T00:00:00", "op": ["transfer", {"from": "alice", "to": "bob", "amount": "1.000 VIZ"}]}],
+            [0, {"timestamp": two_days_ago, "op": ["receive_award", {"receiver": "alice", "reward": "2.000000 SHARES"}]}],
+            [1, {"timestamp": yesterday, "op": ["transfer", {"from": "alice", "to": "bob", "amount": "1.000 VIZ"}]}],
         ],
     ]
 
