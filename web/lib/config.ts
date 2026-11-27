@@ -1,7 +1,7 @@
 /**
  * Base endpoints for the two data tiers.
  *
- *  - REST (`api.viz.cx`, served at viz.cx/api/v1 behind nginx) → Server Components.
+ *  - REST (`api.viz.cx`) → Server Components.
  *  - VIZ JSON-RPC node (node.viz.cx) → client islands via @viz-cx/core.
  *  - WS op stream → the live home feed.
  *
