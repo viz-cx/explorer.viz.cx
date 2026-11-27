@@ -37,7 +37,16 @@ def _invalidate() -> None:
         _cache_expires_at = 0.0
 
 
+MAX_PER_OWNER = 200
+
+
 def add(owner: str, account: str) -> None:
+    # The whole collection is loaded into the dispatch index every few seconds,
+    # so one owner must not be able to grow it without bound.
+    if _coll().count_documents({"owner": owner}) >= MAX_PER_OWNER and not _coll().find_one(
+        {"owner": owner, "account": account}
+    ):
+        raise ValueError(f"Watchlist limit reached ({MAX_PER_OWNER} accounts)")
     _coll().update_one(
         {"owner": owner, "account": account},
         {"$setOnInsert": {"owner": owner, "account": account}},

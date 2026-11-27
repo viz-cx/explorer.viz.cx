@@ -119,7 +119,10 @@ def test_dispatch_calls_httpx_with_signed_body(client, _viz):
         "timestamp": dt.datetime(2026, 1, 1, 10, 0, 0, tzinfo=dt.UTC),
         "op": ["transfer", {"from": "bob", "to": "alice", "amount": 1.0}],
     }
-    with patch("helpers.webhooks.httpx.post") as mock_post:
+    with (
+        patch("helpers.webhooks.httpx.post") as mock_post,
+        patch("helpers.webhooks._is_public", return_value=True),
+    ):
         mock_post.return_value.status_code = 200
         webhooks.dispatch(op)
         webhooks._executor_singleton().shutdown(wait=True)
@@ -152,3 +155,86 @@ def test_dispatch_skips_non_matching_op(client, _viz):
     assert not mock_post.called
 
     webhooks._executor = None
+
+
+def test_deliver_refuses_internal_hosts():
+    """A webhook must not be usable to reach localhost, private or
+    link-local addresses from inside the deploy network."""
+    for url in (
+        "http://127.0.0.1:27017/",
+        "http://localhost/",
+        "http://10.0.0.5/hook",
+        "http://169.254.169.254/latest",
+        "http://[::1]/",
+        "http://no-such-host.invalid/",
+    ):
+        assert not webhooks._is_public(url), url
+        with patch("helpers.webhooks.httpx.post") as mock_post:
+            webhooks._deliver(url, "secret", {})
+        assert not mock_post.called, url
+    assert webhooks._is_public("http://8.8.8.8/hook")
+
+
+def test_register_caps_webhooks_per_account(client, _viz):
+    wif, pub = _make_keypair()
+    _set_account(_viz, "alice", pub)
+    for i in range(webhooks.MAX_PER_ACCOUNT):
+        webhooks.register("alice", f"https://example.test/{i}", None, None)
+    response = client.post(
+        "/webhooks/",
+        json={"url": "https://example.test/one-too-many"},
+        headers=_signed_headers(client, _viz, "alice", wif),
+    )
+    assert response.status_code == 409
+
+
+def test_dispatch_drops_when_backlog_full(client, monkeypatch):
+    import threading
+
+    webhooks.register("alice", "https://example.test/hook", None, None)
+    full = threading.BoundedSemaphore(1)
+    full.acquire()
+    monkeypatch.setattr(webhooks, "_backlog", full)
+    with patch("helpers.webhooks._deliver") as deliver:
+        webhooks.dispatch({"_id": 1.0, "timestamp": None, "op": ["transfer", {}]})
+    assert not deliver.called
+
+
+def test_malformed_webhook_id_is_422_not_500(client, _viz):
+    wif, pub = _make_keypair()
+    _set_account(_viz, "alice", pub)
+    response = client.delete(
+        "/webhooks/not-an-object-id", headers=_signed_headers(client, _viz, "alice", wif)
+    )
+    assert response.status_code == 422
+
+
+def _deliver_with_statuses(statuses):
+    with (
+        patch("helpers.webhooks.httpx.post") as mock_post,
+        patch("helpers.webhooks._is_public", return_value=True),
+        patch("helpers.webhooks.time.sleep") as mock_sleep,
+    ):
+        mock_post.side_effect = [type("R", (), {"status_code": s})() for s in statuses]
+        webhooks._deliver("https://example.test/hook", "secret", {"a": 1})
+    return mock_post.call_count, [c.args[0] for c in mock_sleep.call_args_list]
+
+
+def test_deliver_retries_5xx_with_backoff_then_gives_up():
+    assert _deliver_with_statuses([500, 502, 503]) == (3, [1, 2])
+
+
+def test_deliver_stops_on_first_non_5xx():
+    assert _deliver_with_statuses([500, 204]) == (2, [1])
+    # A 4xx is the receiver's answer, not an outage: no retry.
+    assert _deliver_with_statuses([404]) == (1, [])
+
+
+def test_deliver_retries_when_the_request_raises():
+    with (
+        patch("helpers.webhooks.httpx.post", side_effect=OSError("refused")) as mock_post,
+        patch("helpers.webhooks._is_public", return_value=True),
+        patch("helpers.webhooks.time.sleep"),
+    ):
+        webhooks._deliver("https://example.test/hook", "secret", {})
+    assert mock_post.call_count == webhooks.MAX_ATTEMPTS

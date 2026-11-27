@@ -8,10 +8,12 @@ its connected subscribers. A horizontal scale-out would require a broker.
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import logging
 import threading
 from collections import deque
 from collections.abc import Callable
+from contextlib import suppress
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,36 @@ ACCOUNT_FIELDS = [
     "required_regular_auths",
     "required_posting_auths",
 ]
+
+
+
+def op_matches(op: dict[str, Any], op_type: str | None, account: str | None) -> bool:
+    """Subscriber filter shared by /ws/ops and webhooks: optional exact op
+    type, optional account named in any of ACCOUNT_FIELDS."""
+    if op_type and op["op"][0] != op_type:
+        return False
+    if account:
+        body = op["op"][1] if len(op["op"]) > 1 else {}
+        for field in ACCOUNT_FIELDS:
+            value = body.get(field)
+            if value == account or (isinstance(value, list) and account in value):
+                return True
+        return False
+    return True
+
+
+def serialize_op(op: dict[str, Any]) -> dict[str, Any]:
+    """The public shape of an op, identical on /ws/ops, /ops/recent and webhooks."""
+    ts = op.get("timestamp")
+    if isinstance(ts, dt.datetime):
+        ts = ts.isoformat()
+    return {
+        "op_id": op.get("_id"),
+        "timestamp": ts,
+        "op_type": op["op"][0],
+        "body": op["op"][1] if len(op["op"]) > 1 else {},
+    }
+
 
 _Filter = Callable[[dict[str, Any]], bool]
 _Entry = tuple[asyncio.AbstractEventLoop, asyncio.Queue, _Filter]
@@ -61,6 +93,12 @@ def subscribe(filter_fn: _Filter, *, maxsize: int = 1000) -> tuple[asyncio.Queue
     return queue, _unsubscribe
 
 
+def _offer(queue: asyncio.Queue, op: dict[str, Any]) -> None:
+    # Runs on the subscriber's loop: a full queue means a slow client, drop.
+    with suppress(asyncio.QueueFull):
+        queue.put_nowait(op)
+
+
 def publish_op(op: dict[str, Any]) -> None:
     """Called from the parser (sync) thread. Non-blocking: drops on full queues."""
     with _lock:
@@ -73,12 +111,8 @@ def publish_op(op: dict[str, Any]) -> None:
         except Exception:
             logger.exception("Subscriber filter raised; dropping op for one client")
             continue
-        try:
-            loop.call_soon_threadsafe(queue.put_nowait, op)
-        except RuntimeError:
-            pass
-        except asyncio.QueueFull:
-            pass
+        with suppress(RuntimeError):  # loop already closed
+            loop.call_soon_threadsafe(_offer, queue, op)
 
 
 def recent_ops() -> list[dict[str, Any]]:

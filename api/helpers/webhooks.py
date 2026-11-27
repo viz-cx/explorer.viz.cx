@@ -25,20 +25,23 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import os
 import secrets
+import socket
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from bson import ObjectId
 
+from helpers import pubsub
 from helpers.db_client import get_db
-from helpers.pubsub import ACCOUNT_FIELDS
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,11 @@ SIGNATURE_HEADER = "X-Viz-Signature"
 USER_AGENT = "viz.cx-webhook/1"
 DELIVERY_TIMEOUT = 10.0
 MAX_ATTEMPTS = 3
+MAX_PER_ACCOUNT = 10
+# Deliveries waiting or running. Past this, new ones are dropped: one hanging
+# receiver (33s per op on 4 workers) must not grow the queue without bound.
+MAX_BACKLOG = 1000
+_backlog = threading.BoundedSemaphore(MAX_BACKLOG)
 
 _executor: ThreadPoolExecutor | None = None
 
@@ -104,6 +112,8 @@ def _executor_singleton() -> ThreadPoolExecutor:
 
 
 def register(account: str, url: str, op_type: str | None, target_account: str | None) -> dict[str, str]:
+    if _coll().count_documents({"account": account}) >= MAX_PER_ACCOUNT:
+        raise ValueError(f"Webhook limit reached ({MAX_PER_ACCOUNT} per account)")
     secret = secrets.token_urlsafe(32)
     doc = {
         "account": account,
@@ -135,39 +145,28 @@ def list_for(account: str) -> list[dict[str, Any]]:
     return out
 
 
-def _matches(filt: dict[str, Any], op: dict[str, Any]) -> bool:
-    op_type_f = filt.get("op_type")
-    account_f = filt.get("account")
-    if op_type_f and op["op"][0] != op_type_f:
-        return False
-    if account_f:
-        body = op["op"][1] if len(op["op"]) > 1 else {}
-        for field in ACCOUNT_FIELDS:
-            value = body.get(field)
-            if value == account_f or (isinstance(value, list) and account_f in value):
-                return True
-        return False
-    return True
-
-
-def _serialize(op: dict[str, Any]) -> dict[str, Any]:
-    ts = op.get("timestamp")
-    if isinstance(ts, dt.datetime):
-        ts = ts.isoformat()
-    return {
-        "op_id": op.get("_id"),
-        "timestamp": ts,
-        "op_type": op["op"][0],
-        "body": op["op"][1] if len(op["op"]) > 1 else {},
-    }
-
-
 def _sign(secret: str, payload: bytes) -> str:
     digest = hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
     return f"sha256={digest}"
 
 
+def _is_public(url: str) -> bool:
+    """True only if every address the host resolves to is a public one, so a
+    webhook can't be aimed at mongo, localhost or other containers."""
+    # shortcut: checked just before the POST, not pinned to it, so a host that
+    # re-resolves between the two (DNS rebinding) slips through; pin the
+    # resolved IP in the request if webhooks ever reach sensitive networks.
+    try:
+        infos = socket.getaddrinfo(urlsplit(url).hostname, None)
+    except (OSError, UnicodeError):
+        return False
+    return bool(infos) and all(ipaddress.ip_address(i[4][0]).is_global for i in infos)
+
+
 def _deliver(url: str, secret: str, payload: dict[str, Any]) -> None:
+    if not _is_public(url):
+        logger.warning("Webhook skipped, host is not a public address: url=%s", url)
+        return
     body = json.dumps(payload, default=str).encode("utf-8")
     headers = {
         "Content-Type": "application/json",
@@ -194,9 +193,15 @@ def dispatch(op: dict[str, Any]) -> None:
     candidates = _active_webhooks()
     if not candidates:
         return
-    payload = _serialize(op)
+    payload = pubsub.serialize_op(op)
     pool = _executor_singleton()
     for wh in candidates:
-        if not _matches(wh.get("filter", {}) or {}, op):
+        filt = wh.get("filter") or {}
+        if not pubsub.op_matches(op, filt.get("op_type"), filt.get("account")):
             continue
-        pool.submit(_deliver, wh["url"], wh["secret"], payload)
+        if not _backlog.acquire(blocking=False):
+            logger.warning("Webhook backlog full; dropping delivery: url=%s", wh["url"])
+            continue
+        pool.submit(_deliver, wh["url"], wh["secret"], payload).add_done_callback(
+            lambda _f: _backlog.release()
+        )

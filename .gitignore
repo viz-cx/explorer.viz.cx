@@ -2,8 +2,6 @@
 
 # dependencies
 /node_modules
-/.pnp
-.pnp.js
 
 # testing
 /coverage
@@ -30,21 +28,14 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
 .env
-robots.txt
-sitemap*.xml
 __pycache__
 
 # user defined
 .vscode
 *.zip
-backend/test.py
-backend/backend.7z
 *.7z
 .claude/*
 .superpowers/

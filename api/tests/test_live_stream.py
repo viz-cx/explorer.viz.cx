@@ -74,3 +74,58 @@ def test_start_live_stream_skips_empty_blocks(monkeypatch):
         live_stream.start_live_stream()
 
     assert emitted == []  # no ops in the block → nothing emitted
+
+
+def test_start_live_stream_bounds_catchup_and_survives_errors(monkeypatch):
+    """After a stall it replays at most MAX_CATCHUP blocks, and an RPC error
+    retries instead of killing the thread."""
+    heads = iter([100, RuntimeError("node down"), 500])
+
+    def fake_head():
+        try:
+            value = next(heads)
+        except StopIteration:
+            raise KeyboardInterrupt from None
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    seen = []
+    monkeypatch.setattr(live_stream, "MAX_CATCHUP", 3)
+    monkeypatch.setattr(live_stream, "get_head_block_num", fake_head)
+    monkeypatch.setattr(live_stream, "get_block", lambda n: seen.append(n))
+    monkeypatch.setattr(live_stream, "sleep", lambda _s: None)
+
+    with pytest.raises(KeyboardInterrupt):
+        live_stream.start_live_stream()
+
+    assert seen == [100, 498, 499, 500]
+
+
+def test_watchdog_alerts_once_per_stale_worker_and_on_recovery(monkeypatch, caplog):
+    """Edge-triggered per worker: one error when a heartbeat goes stale, none
+    while it stays stale, one warning when it comes back."""
+    ages = iter([
+        {"live_stream": 1, "parser": None},   # parser not started: ignored
+        {"live_stream": 1, "parser": 500},    # parser stale -> error
+        {"live_stream": 1, "parser": 900},    # still stale -> silent
+        {"live_stream": 1, "parser": 2},      # recovered -> warning
+    ])
+    current = {}
+
+    def fake_sleep(_s):
+        try:
+            current.update(next(ages))
+        except StopIteration:
+            raise KeyboardInterrupt from None
+
+    monkeypatch.setattr(live_stream, "sleep", fake_sleep)
+    monkeypatch.setattr(live_stream, "seconds_since_heartbeat", lambda w: current[w])
+
+    with caplog.at_level("WARNING", logger=live_stream.__name__), pytest.raises(KeyboardInterrupt):
+        live_stream.start_live_stream_watchdog()
+
+    assert [(r.levelname, r.args[0]) for r in caplog.records] == [
+        ("ERROR", "parser"),
+        ("WARNING", "parser"),
+    ]

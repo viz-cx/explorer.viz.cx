@@ -51,12 +51,15 @@ def create_webhook(
     body: WebhookCreateBody,
     account: str = Depends(require_signed_request),
 ) -> WebhookCreated:
-    result = webhooks.register(
-        account=account,
-        url=str(body.url),
-        op_type=body.filter.op_type,
-        target_account=body.filter.account,
-    )
+    try:
+        result = webhooks.register(
+            account=account,
+            url=str(body.url),
+            op_type=body.filter.op_type,
+            target_account=body.filter.account,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     return WebhookCreated(**result)
 
 

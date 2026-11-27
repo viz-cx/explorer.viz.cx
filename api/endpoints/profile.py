@@ -14,7 +14,7 @@ router = APIRouter(
 
 @router.get("/{user}")
 @cache(expire=60)
-async def profile(user: str):
+def profile(user: str):
     try:
         acc = Account(user, get_client())
         if not isinstance(acc["json_metadata"], dict):
@@ -22,7 +22,7 @@ async def profile(user: str):
         if "profile" not in acc["json_metadata"]:
             acc["json_metadata"]["profile"] = {}
         if "avatar" not in acc["json_metadata"]["profile"]:
-            prefix = "https://viz.cx/api/v1"  # "http://localhost:8080"
+            prefix = "https://api.viz.cx"
             ava = f"{prefix}/profile/avatar/{user}"
             acc["json_metadata"]["profile"]["avatar"] = ava
         return acc
@@ -31,6 +31,11 @@ async def profile(user: str):
 
 
 @router.get("/avatar/{user}")
-@cache()
-async def avatar(user: str) -> Response:
-    return Response(content=generateAvatar(user), media_type="image/svg+xml")
+def avatar(user: str) -> Response:
+    # Not @cache'd: fastapi-cache can't store a raw Response (a hit comes back
+    # as JSON). The image is a pure function of the name, so let clients keep it.
+    return Response(
+        content=generateAvatar(user),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )

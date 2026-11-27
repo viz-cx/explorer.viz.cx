@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getProfile, getChainInfo } from "@/lib/api";
 import { Avatar } from "@/components/Avatar";
@@ -32,7 +32,10 @@ export async function generateMetadata({
 
 export default async function AccountPage({ params }: { params: Promise<{ account: string }> }) {
   const { account } = await params;
-  const user = bareAccount(decodeURIComponent(account));
+  const segment = decodeURIComponent(account);
+  const user = bareAccount(segment);
+  // One canonical URL per account: /name redirects to /@name.
+  if (!segment.startsWith("@")) permanentRedirect(`/@${user}`);
 
   const [profile, info] = await Promise.all([getProfile(user), getChainInfo()]);
   if (!profile) notFound();
