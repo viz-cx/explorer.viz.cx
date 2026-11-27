@@ -45,3 +45,18 @@ def test_endpoints_are_owner_scoped(client, _viz):
 
 def test_endpoint_requires_bearer(client, _viz):
     assert client.get("/watchlist").status_code == 401
+
+
+def test_watchlist_rejects_non_account_names_and_caps_size(client, monkeypatch):
+    from helpers import sessions, watchlist
+
+    headers = {"Authorization": f"Bearer {sessions.create_session('alice')}"}
+    bad = client.post("/watchlist", json={"account": "Not An Account!"}, headers=headers)
+    assert bad.status_code == 422
+
+    monkeypatch.setattr(watchlist, "MAX_PER_OWNER", 2)
+    for name in ("bob", "carol"):
+        assert client.post("/watchlist", json={"account": name}, headers=headers).status_code == 200
+    assert client.post("/watchlist", json={"account": "dave"}, headers=headers).status_code == 409
+    # Re-adding one already watched stays idempotent at the cap.
+    assert client.post("/watchlist", json={"account": "bob"}, headers=headers).status_code == 200

@@ -8,8 +8,7 @@ jinja2==3.1.6
 motor==3.7.1
 multiavatar==1.0.3
 pydantic==2.13.4
-pyeditorjs==1.0.0b0
-pymongo==4.17.0
+pymongo==4.18.3
 python-dotenv==1.2.2
 sentry-sdk[fastapi]==2.68.0
 uvicorn==0.40.0

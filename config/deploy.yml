@@ -37,6 +37,10 @@ proxy:
     - api.viz.cx                  # the API's own name (A record → axveer)
     - node.viz.cx                 # legacy RPC name — reverse-proxied (HTTP+WS)
   app_port: 8000
+  # Pinned on purpose (it is also the default with ssl: true): kamal-proxy must
+  # replace any client-sent X-Forwarded-For. uvicorn trusts that header
+  # (--forwarded-allow-ips '*'), and every per-IP rate limit keys on it.
+  forward_headers: false
   ssl: true
   healthcheck:
     path: /                       # others.py home() — node info round-trip;
@@ -65,13 +69,10 @@ env:
     #   79,105,831–80,679,604  (legacy vizd wedged; see commit 1f6663f)
     #   80,807,025–~81,193,000  (this freeze; out of every node's tip window)
     PARSER_START_BLOCK: "81193000"
-    # Only the parser worker exists now (feeds raw blocks into mongo and emits
-    # tip ops live). The sorter/posts workers were removed, along with their
-    # SKIP_SORTER/SKIP_POSTS knobs. SKIP_WORKERS=1 (unset here) would skip the
-    # parser — used only by tests. See api/main.py _start_background_workers.
-    # EMIT_TIP_LAG bounds how close to the chain tip a block must be to emit
-    # live (default 5); set explicitly here for clarity.
-    EMIT_TIP_LAG: "5"
+    # Background workers: parser (raw blocks into mongo), live_stream (head
+    # ops to /ws/ops + webhooks) and richlist. SKIP_WORKERS=1 (unset here)
+    # skips them all — used only by tests. See api/main.py
+    # _start_background_workers.
     LOG_LEVEL: INFO
     # ROOT_PATH unset on purpose: kamal drops empty-string env values, so the
     # "" default lives in api/main.py. Set it only under a stripped prefix.

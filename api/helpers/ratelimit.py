@@ -17,6 +17,7 @@ import threading
 import time
 
 from fastapi import HTTPException, Request, status
+from starlette.requests import HTTPConnection
 
 _lock = threading.Lock()
 # key -> (window_start_monotonic, count)
@@ -56,7 +57,7 @@ def hit(key: str, limit: int, window_s: float) -> bool:
         return count <= limit
 
 
-def client_ip(request: Request) -> str:
+def client_ip(request: HTTPConnection) -> str:
     """Best-effort client IP. uvicorn runs with ``--proxy-headers
     --forwarded-allow-ips '*'``, so ``request.client.host`` is the real client
     address forwarded by kamal-proxy, not the proxy's own."""

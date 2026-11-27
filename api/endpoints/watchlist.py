@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from helpers import watchlist
 from helpers.session_auth import require_session
@@ -8,7 +8,7 @@ router = APIRouter(prefix="/watchlist", tags=["Watchlist"], responses={401: {"de
 
 
 class WatchBody(BaseModel):
-    account: str
+    account: str = Field(pattern=r"^[a-z0-9.-]{2,25}$")
 
 
 @router.get("")
@@ -18,7 +18,10 @@ def list_watchlist(owner: str = Depends(require_session)) -> dict[str, list[str]
 
 @router.post("")
 def add_watch(body: WatchBody, owner: str = Depends(require_session)) -> dict[str, bool]:
-    watchlist.add(owner, body.account)
+    try:
+        watchlist.add(owner, body.account)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     return {"ok": True}
 
 

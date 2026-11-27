@@ -46,7 +46,7 @@ def _collect_history(account: str, now: dt.datetime) -> list:
 
 @router.get("/{account}")
 @cache(expire=60)
-async def analytics(account: str) -> dict:
+def analytics(account: str) -> dict:
     now = dt.datetime.utcnow()
     try:
         entries = _collect_history(account, now)

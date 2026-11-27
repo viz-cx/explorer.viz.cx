@@ -26,7 +26,7 @@ def search_usernames(q: str, limit: int = _SEARCH_LIMIT) -> list[str]:
 
 
 @router.get("")
-async def search_people(q: str = "") -> dict:
+def search_people(q: str = "") -> dict:
     """Search for people by username prefix.
 
     - `q` shorter than 2 characters returns an empty list immediately.

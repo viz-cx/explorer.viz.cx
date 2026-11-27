@@ -6,16 +6,18 @@ from threading import Thread
 
 import httpx
 import websockets
+from bson.errors import InvalidId
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_cache import FastAPICache
-from fastapi_cache.backends.inmemory import InMemoryBackend
 
 load_dotenv()
 
 from helpers import ratelimit  # noqa: E402
+from helpers.bounded_cache import BoundedInMemoryBackend  # noqa: E402
 from helpers.db_client import ensure_indexes  # noqa: E402
 from helpers.observability import init_sentry  # noqa: E402
 from helpers.richlist_snapshot import run_richlist  # noqa: E402
@@ -43,6 +45,9 @@ RPC_WS_UPSTREAM = "wss://rpc.viz.cx"
 # user makes many calls; this is an anti-abuse ceiling, not a fair-use quota.
 # Tune with RPC_PROXY_RATE_PER_MIN; 0 disables the limit entirely.
 RPC_PROXY_RATE_PER_MIN = int(os.getenv("RPC_PROXY_RATE_PER_MIN", "600"))
+# Per-IP cap on new node.viz.cx WebSocket connections: each one opens its own
+# upstream socket to the node. 0 disables.
+RPC_WS_CONNECTS_PER_MIN = int(os.getenv("RPC_WS_CONNECTS_PER_MIN", "120"))
 # RFC 7230 hop-by-hop headers — must not be forwarded across the proxy.
 _HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
@@ -68,7 +73,7 @@ def _start_background_workers() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _rpc_client
-    FastAPICache.init(InMemoryBackend(), prefix="fastapi-cache")
+    FastAPICache.init(BoundedInMemoryBackend(), prefix="fastapi-cache")
     if os.getenv("SKIP_WORKERS") != "1":
         init_node()
         ensure_indexes()
@@ -92,6 +97,11 @@ app = FastAPI(
     title="VIZ.cx API", root_path=os.getenv("ROOT_PATH", ""), lifespan=lifespan
 )
 app.include_router(router)
+
+
+@app.exception_handler(InvalidId)
+async def invalid_object_id(_request: Request, _exc: InvalidId) -> JSONResponse:
+    return JSONResponse(status_code=422, content={"detail": "Malformed id"})
 
 
 @app.middleware("http")
@@ -143,11 +153,16 @@ async def proxy_legacy_rpc_host(request: Request, call_next):
 async def proxy_legacy_rpc_ws(websocket: WebSocket, _path: str):
     """WebSocket JSON-RPC reverse proxy for node.viz.cx -> RPC_WS_UPSTREAM.
 
-    Host-scoped catch-all: this app exposes no other WebSocket endpoints, so a
-    single catch-all is safe; connections whose Host isn't node.viz.cx are
-    rejected (1008) and never reach a real route. Both directions are pumped
+    Host-scoped catch-all, registered after the router so real WebSocket
+    routes (/ws/ops) match first; connections whose Host isn't node.viz.cx are
+    rejected (1008). Both directions are pumped
     until either side closes."""
     if websocket.headers.get("host", "").split(":")[0] != LEGACY_RPC_HOST:
+        await websocket.close(code=1008)
+        return
+    if not ratelimit.hit(
+        f"rpcws:{ratelimit.client_ip(websocket)}", RPC_WS_CONNECTS_PER_MIN, 60.0
+    ):
         await websocket.close(code=1008)
         return
 

@@ -1,9 +1,8 @@
-"""Live op stream: replay a saved block's ops to subscribers (WS + webhooks).
+"""Live op stream: fan a head block's ops out to subscribers (WS, webhooks,
+notifications, award stats).
 
-Replaces the only responsibility the deleted sorter still served. The event
-shape — {"_id": <block + op-fraction>, "timestamp": <datetime>, "op": [type, body]}
-— is identical to what the sorter published, so WS and webhook consumers are
-unchanged. Called from the parser, guarded so only chain-tip blocks emit.
+Event shape: {"_id": <block + op-fraction>, "timestamp": <iso str>,
+"op": [type, body]}. Called by parser.live_stream for each new head block.
 """
 from __future__ import annotations
 

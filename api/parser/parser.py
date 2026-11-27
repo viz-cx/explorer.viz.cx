@@ -5,13 +5,17 @@ real-time WS/webhook feed is served separately from the chain head by
 parser.live_stream — see that module for why the two are split.
 """
 
+import logging
 import os
 from time import sleep
 from typing import NoReturn
 
 from helpers import award_stats
+from helpers.live_health import record_heartbeat
 from helpers.mongo import get_last_blocknum, save_block
 from helpers.viz import get_client, get_last_block_in_chain, get_ops_in_block
+
+logger = logging.getLogger(__name__)
 
 _ACCOUNT_OPS = {"account_create", "account_update", "invite_registration"}
 
@@ -38,7 +42,7 @@ def _update_key_index(block: list) -> None:
             if acc:
                 upsert_keys(acc["name"], keys_from_account_data(acc))
     except Exception as exc:
-        print(f"[key_index] update failed: {exc}")
+        logger.warning("key_index update failed: %s", exc)
 
 
 def resolve_start_block(last_db_block: int) -> int:
@@ -63,6 +67,7 @@ def start_parsing() -> NoReturn:
     while True:
         try:
             last_chain_block = get_last_block_in_chain()
+            record_heartbeat("parser")
             if last_chain_block - last_db_block > 0:
                 for _ in range(last_db_block + 1, last_chain_block + 1):
                     # `_` is the authoritative block number. The node returns an
@@ -78,13 +83,13 @@ def start_parsing() -> NoReturn:
                     # unadvanced, and the next iteration re-inserts → dup-key
                     # crash-loop (froze the tip at 81,288,426 for ~16h).
                     last_db_block = _
+                    record_heartbeat("parser")
                     _update_key_index(block)
                     award_stats.capture_payouts(block, _)
                     if last_db_block % 100 == 0:
                         print(f"Saved block {_} (ch: {last_chain_block})")
             else:
                 sleep(1)
-        except Exception as e:
-            print(f"Parsing error: {str(e)}. Restart in 10 seconds.")
+        except Exception:
+            logger.exception("Parsing error. Restart in 10 seconds.")
             sleep(10)
-            print("Restarting...")

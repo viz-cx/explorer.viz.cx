@@ -89,3 +89,13 @@ def test_count_and_mark_read_endpoints(client, _viz):
 
 def test_notifications_require_bearer(client, _viz):
     assert client.get("/notifications/count").status_code == 401
+
+
+def test_malformed_cursor_is_422_not_500(client, _viz):
+    from helpers import sessions
+
+    token = sessions.create_session("alice")
+    r = client.get(
+        "/notifications", params={"before": "abc"}, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert r.status_code == 422

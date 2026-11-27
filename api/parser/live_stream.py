@@ -76,29 +76,24 @@ def start_live_stream() -> NoReturn:
 
 
 def start_live_stream_watchdog() -> NoReturn:
-    """Alert once when the live_stream heartbeat goes stale, and once more
-    when it recovers. Edge-triggered so a genuine hang pages someone without
-    spamming on every check while it stays down."""
-    was_stale = False
+    """Alert once when a worker's heartbeat (live_stream or parser) goes stale,
+    and once more when it recovers. Edge-triggered so a genuine hang pages
+    someone without spamming on every check while it stays down."""
+    was_stale: dict[str, bool] = {}
     while True:
         sleep(WATCHDOG_CHECK_INTERVAL)
-        age = seconds_since_heartbeat()
-        if age is None:
-            continue  # live_stream hasn't completed its first poll yet
-        is_stale = age > WATCHDOG_STALE_AFTER
-        if is_stale and not was_stale:
-            logger.error(
-                "live_stream heartbeat stale: last beat %.0fs ago (threshold %.0fs)",
-                age, WATCHDOG_STALE_AFTER,
-            )
-            try:
-                import sentry_sdk
-                sentry_sdk.capture_message(
-                    f"live_stream heartbeat stale ({age:.0f}s) — notifications/live feed likely dead",
-                    level="error",
+        for worker in ("live_stream", "parser"):
+            age = seconds_since_heartbeat(worker)
+            if age is None:
+                continue  # worker hasn't completed its first cycle yet
+            is_stale = age > WATCHDOG_STALE_AFTER
+            if is_stale and not was_stale.get(worker):
+                # logger.error also reaches Sentry (its logging integration)
+                # whenever SENTRY_DSN is set.
+                logger.error(
+                    "%s heartbeat stale: last beat %.0fs ago (threshold %.0fs)",
+                    worker, age, WATCHDOG_STALE_AFTER,
                 )
-            except Exception:
-                logger.exception("Failed to report stale live_stream heartbeat to Sentry")
-        elif was_stale and not is_stale:
-            logger.warning("live_stream heartbeat recovered after being stale")
-        was_stale = is_stale
+            elif was_stale.get(worker) and not is_stale:
+                logger.warning("%s heartbeat recovered after being stale", worker)
+            was_stale[worker] = is_stale

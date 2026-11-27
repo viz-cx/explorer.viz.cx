@@ -28,3 +28,12 @@ def test_profile_404_for_missing_account(client):
     with patch("endpoints.profile.Account", side_effect=AccountDoesNotExistsException()):
         response = client.get("/profile/missing-user")
     assert response.status_code == 404
+
+
+def test_avatar_is_svg_on_every_request(client):
+    """A response cache in front of this route once turned the second hit into JSON."""
+    for _ in range(2):
+        response = client.get("/profile/avatar/alice")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/svg+xml"
+        assert response.content.startswith(b"<svg")
