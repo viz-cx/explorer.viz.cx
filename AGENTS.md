@@ -4,7 +4,7 @@ Notes for AI agents (and humans skimming) working in this repo.
 
 ## What lives here
 
-This repo currently contains only the **API server** (`api/`). The Nuxt frontend referenced in the root README is in a separate location — don't expect to find it here.
+This repo holds the **API server** (`api/`) and the **Next.js frontend** (`web/`). The notes below cover the API.
 
 ```
 api/                 FastAPI app
@@ -15,7 +15,8 @@ api/                 FastAPI app
   parser/            block parser worker (background thread; also emits the live op stream)
   static/playground/ in-browser API playground (plain HTML/JS/CSS, no build step)
   tests/             pytest suite
-nginx.conf.example   reverse-proxy template
+web/                 Next.js frontend (see web/AGENTS.md)
+config/              Kamal deploy configs (API and web)
 ```
 
 ## Running the API locally
@@ -34,7 +35,6 @@ Open <http://localhost:8080/playground/>.
 
 Key env knobs:
 - `SKIP_WORKERS=1` — skip startup side-effects (see section below).
-- `EMIT_TIP_LAG=5` — the tip window (in blocks) within which the parser emits ops live to WS subscribers and webhooks. Default 5.
 
 ### `SKIP_WORKERS=1` — what it does and when to use it
 
