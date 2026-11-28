@@ -33,7 +33,8 @@ set -euo pipefail
 
 NAME=${NAME:-viz-backfill}
 SRC_DIR=/opt/viz-backfill
-SCRIPT_NAME=backfill_from_info_viz.py
+# SCRIPT_NAME=backfill_voice_ops.py NAME=viz-voice bash ... runs the Voice snapshot instead.
+SCRIPT_NAME=${SCRIPT_NAME:-backfill_from_info_viz.py}
 HERE=$(cd "$(dirname "$0")" && pwd)
 : "${BACKFILL_SLEEP:=1.0}"
 # A finished pass must NOT exit: --restart unless-stopped would relaunch it at
@@ -87,7 +88,7 @@ docker create --name "$NAME" --restart unless-stopped \
   ${RANGE_ENV[@]+"${RANGE_ENV[@]}"} \
   -v "$SRC_DIR/$SCRIPT_NAME:/code/scripts/$SCRIPT_NAME:ro" \
   "$IMAGE" \
-  python -m scripts.backfill_from_info_viz >/dev/null
+  python -m "scripts.${SCRIPT_NAME%.py}" >/dev/null
 for n in $NETS; do
   [ "$n" = "$FIRST" ] || docker network connect "$n" "$NAME" 2>/dev/null || true
 done
