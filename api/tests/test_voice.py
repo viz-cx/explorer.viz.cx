@@ -22,17 +22,19 @@ def _block():
         {"timestamp": TS, "op": ["transfer", {"from": "a"}]},
         _custom("V", None, raw="{not json"),
         _custom("VE", {"e": "h", "b": 10}, acc="bob"),
+        _custom("V", None, raw='{"d": {"t": "line1\nline2"}}'),  # raw newline in a string
     ]
 
 
 def test_capture_stores_v_and_ve_only_and_survives_bad_json():
     voice_ops.ensure_indexes()
-    assert voice_ops.capture(_block(), 10) == 2
+    assert voice_ops.capture(_block(), 10) == 3
     voice_ops.capture(_block(), 10)  # idempotent
     items = voice_ops.page(0, 10)
     assert [(i["seq"], i["protocol"], i["account"]) for i in items] == [
-        (10 * 100_000, "V", "alice"), (10 * 100_000 + 4, "VE", "bob"),
+        (10 * 100_000, "V", "alice"), (10 * 100_000 + 4, "VE", "bob"), (10 * 100_000 + 5, "V", "alice"),
     ]
+    assert items[2]["json"]["d"]["t"] == "line1\nline2"
     assert items[0]["json"] == {"p": 0, "d": {"t": "hello"}}
     assert items[0]["block"] == 10
 
@@ -44,7 +46,7 @@ def test_page_orders_and_pages_by_seq():
     first = voice_ops.page(0, 2)
     assert [i["block"] for i in first] == [10, 10]
     rest = voice_ops.page(first[-1]["seq"], 10)
-    assert [i["block"] for i in rest] == [20, 20]
+    assert [i["block"] for i in rest] == [10, 20, 20, 20]
 
 
 def test_voice_endpoint(client):
@@ -63,5 +65,5 @@ def test_backfill_run_scans_blocks(monkeypatch):
         coll.insert_one({"_id": n, "block": _block() if n in (2, 6) else [_custom("x", {})]})
     # mongomock has no hint(); the real index check is VOICE_EXPLAIN on prod.
     monkeypatch.setattr(type(coll.find({})), "hint", lambda self, _i: self, raising=False)
-    assert bf.run(1, 7) == 4
+    assert bf.run(1, 7) == 6
     assert {i["block"] for i in voice_ops.page(0, 10)} == {2, 6}

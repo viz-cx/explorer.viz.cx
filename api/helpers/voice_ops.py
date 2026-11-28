@@ -42,7 +42,8 @@ def capture(block: list[dict[str, Any]], blocknum: int) -> int:
             continue
         seq = blocknum * COUNT_MAX_OPS_IN_BLOCK + i
         try:
-            parsed = json.loads(body.get("json") or "")
+            # strict=False: some clients put raw newlines inside JSON strings.
+            parsed = json.loads(body.get("json") or "", strict=False)
             if not isinstance(parsed, dict):
                 raise ValueError("not an object")
             auths = body.get("required_regular_auths") or body.get("required_active_auths") or []
