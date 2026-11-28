@@ -67,7 +67,15 @@ def ensure_indexes() -> None:
     coll = db[os.getenv("COLLECTION", "")]
     coll.create_index([("_id", 1), ("block.op.0", 1), ("block.op.1.id", 1)])
 
-    from helpers import award_stats, notifications, sessions, signature_auth, voice_ops, watchlist, webhooks
+    from helpers import (
+        award_stats,
+        notifications,
+        sessions,
+        signature_auth,
+        voice_ops,
+        watchlist,
+        webhooks,
+    )
     from helpers.key_index import ensure_key_indexes
 
     signature_auth.ensure_nonce_indexes()
