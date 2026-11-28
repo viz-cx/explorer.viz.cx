@@ -33,7 +33,7 @@ set -euo pipefail
 
 NAME=${NAME:-viz-backfill}
 SRC_DIR=/opt/viz-backfill
-# SCRIPT_NAME=backfill_voice_ops.py NAME=viz-voice bash ... runs the Voice snapshot instead.
+# SCRIPT_NAME=<other_script>.py runs a different scripts/ module in the same sidecar.
 SCRIPT_NAME=${SCRIPT_NAME:-backfill_from_info_viz.py}
 HERE=$(cd "$(dirname "$0")" && pwd)
 : "${BACKFILL_SLEEP:=1.0}"

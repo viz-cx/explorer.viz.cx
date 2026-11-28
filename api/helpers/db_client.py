@@ -72,7 +72,6 @@ def ensure_indexes() -> None:
         notifications,
         sessions,
         signature_auth,
-        voice_ops,
         watchlist,
         webhooks,
     )
@@ -85,5 +84,4 @@ def ensure_indexes() -> None:
     watchlist.ensure_indexes()
     notifications.ensure_indexes()
     award_stats.ensure_indexes()
-    voice_ops.ensure_indexes()
     _indexes_ensured = True

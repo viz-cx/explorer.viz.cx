@@ -13,7 +13,6 @@ from endpoints import (
     profile,
     richlist,
     session,
-    voice,
     watchlist,
     webhooks,
     ws,
@@ -27,7 +26,6 @@ router.include_router(session.router)
 router.include_router(watchlist.router)
 router.include_router(notifications.router)
 router.include_router(awards.router)
-router.include_router(voice.router)
 router.include_router(analytics.router)
 router.include_router(key_references.router)
 router.include_router(blocks.router)
